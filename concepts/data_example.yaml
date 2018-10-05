@@ -37,7 +37,7 @@ multimedia_annotations:
     site: some site
     sub_site: some sub site
     location: some location
-    unique_location_md5: md5(project|site|sub_site|location)
+    full_location_md5: md5(project|site|sub_site|location)
     date_time_original: 2017:02:09 06:11:09
     date_time_original_timestamp: 1537857332
     year_original: '2017'
@@ -70,6 +70,7 @@ multimedia_annotation_revisions:
 # 視查詢頻度，要與主資料集共有一些 redundancies (faq)
 multimedia_metadata:
   - url_md5: some md5-hashed value (id field)
+    url: https://camera-trap/xxxxxx
     timezone: +08:00
     device_metadata: json serialized string of raw extracted metadata
     make: RECONYX
@@ -85,7 +86,7 @@ multimedia_metadata:
     site: some site
     sub_site: some sub site
     location: some location
-    unique_location_md5: md5(project|site|sub_site|location)
+    full_location_md5: md5(project|site|sub_site|location)
     date_time_original: 2017:02:09 06:11:09
     year_original: '2017'
     month_original: '02'
@@ -139,12 +140,12 @@ project_metadata:
 
 ---
 location_metadata:  
-  - unique_location_md5: md5-hashed unique_location (id field)
+  - full_location_md5: md5-hashed full_location (id field) # this is id
     project: some project
     site: some site
     sub_site: some sub site
     location: some location
-    unique_location: project|site|sub_site|location
+    full_location: project|site|sub_site|location
     higher_heirarchy: md5(project|site|sub_site)
     original_coordinates:
       - x: $x1
@@ -169,7 +170,7 @@ location_metadata:
 ---
 
 deployment_situation:
-  unique_location_md5:
+  full_location_md5:
   roughly_from:
   roughly_to:
   situation_level: green / yellow / red
@@ -180,7 +181,7 @@ deployment_situation:
 
 # 視情況決定是否用 DynamoDB 實作
 write_lock:
-  - unique_location_md5: md5-hashed unique_location (id field)
+  - full_location_md5: md5-hashed full_location (id field)
     locked: false
     locked_by: $some_user_id
     locked_on: timestamp
@@ -192,12 +193,12 @@ write_lock:
 # 每「單個」檔案上傳自動產生
 upload_sessions:
   - upload_session_id: $upload_session_id_1
-    unique_location_md5: $some_unique_location_md5_1
+    full_location_md5: $some_full_location_md5_1
     timestamp: $some_upload_time_1
     by: $some_user_id_1
-    status: success / pending / error
+    status: created / success / pending / error
   - upload_session_id: $upload_session_id_2
-    unique_location_md5: $some_unique_location_md5_2
+    full_location_md5: $some_full_location_md5_2
     timestamp: $some_upload_time_1
     by: $some_user_id_1
     status: success / pending / error
@@ -208,6 +209,8 @@ users:
   - user_id: $some_user_id
     name: $some_name
     email: $some_email
+    access_token: string
+    expiration: timestamp
     project_roles: 
     - project: $some_project
       roles:
