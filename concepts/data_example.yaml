@@ -130,9 +130,10 @@ project_metadata:
         validator: validator for $field_key_1
       - field_key: $field_key_2
         validator: validator for $field_key_2
-    higher_heirarchy:
+    higher_heirarchy: # 考慮拿掉這個，沒有相機位置就不允許存檔
       - concat: project|site|sub_site
         md5: md5(concat)
+    locations: $location_metadata
     daily_test:
       - since: some datetime or timestamp
         time: test time of a day
@@ -180,13 +181,13 @@ deployment_situation:
 ---
 
 # 視情況決定是否用 DynamoDB 實作
-write_lock:
+location_data_lock:
   - full_location_md5: md5-hashed full_location (id field)
     locked: false
     locked_by: $some_user_id
     locked_on: timestamp
-    last_user_act: $last_act_timestamp
-    unlock_on: $last_act_timestamp_plus_30mins
+    # last_user_act: $last_act_timestamp
+    # unlock_on: $last_act_timestamp_plus_30mins
 
 ---
 
@@ -205,12 +206,11 @@ upload_sessions:
 
 ---
 
-users:
+ctp_users:
   - user_id: $some_user_id
     name: $some_name
     email: $some_email
-    access_token: string
-    expiration: timestamp
+    id_token: string # 其實好像不需要
     project_roles: 
     - project: $some_project
       roles:
@@ -283,3 +283,13 @@ system_announcements:
   date_time:
   level: green / yellow / red
   message:
+
+---
+
+role_permissions:
+  - permission_id: md5(role/remoteMethod/collectionScope/projectScope)
+    role: some role name (id)
+    remoteMethod: remoteMethod name / ANY
+    collection_scope: specific collection / ANY
+    project_scope: OWN / ANY
+    enabled: true
