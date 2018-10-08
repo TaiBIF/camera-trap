@@ -287,9 +287,8 @@ system_announcements:
 ---
 
 role_permissions:
-  - permission_id: md5(role/remoteMethod/collectionScope/projectScope)
-    role: some role name (id)
-    remoteMethod: remoteMethod name / ANY
-    collection_scope: specific collection / ANY
-    project_scope: OWN / ANY
+  - role: some role name (id)
+    remoteMethod: remoteMethod name / ANY / NA
+    collection_scope: specific collection / ANY / NA
+    project_scope: OWN / ANY / NA
     enabled: true
