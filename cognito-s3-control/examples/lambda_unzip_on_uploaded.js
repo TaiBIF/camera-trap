@@ -20,17 +20,36 @@ exports.handler = (event, context, callback) => {
 
   let file_key = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, ' '));
   let params = { Bucket: bucket, Key: file_key };
+  let upload_session_id = file_key.split("/")[2];
 
   s3.getObjectTagging(params, function(err, tags) {
     if (err) console.log(err, err.stack); // an error occurred
     else     console.log(tags);
 
-    let data = {};
+    let tag_data = {};
     tags.TagSet.forEach(function(d){
-      data[d.Key] = d.Value;
+      tag_data[d.Key] = d.Value;
     });
 
+    function encodeQueryData (data) {
+      let ret = [];
+      for (let d in data) {
+        if (data.hasOwnProperty(d)) {
+          ret.push(encodeURIComponent(d) + '=' + encodeURIComponent(data[d]));
+        }
+      }
+      return ret.join('&');
+    }
+
+    let tags_string = encodeQueryData(tag_data);
+
+    if (!tag_data.sub_site) tag_data.sub_site = 'NULL';
+
     let parser = unzip.Parse({ decodeString: (buffer) => { return iconvLite.decode(buffer, 'utf8'); } });
+
+    let upsert_querys = [];    
+    let unzip_end = false;
+    let cnt_of_exif_extracting = 0;
 
     s3.getObject(params).createReadStream()
       .pipe(parser)
@@ -50,6 +69,7 @@ exports.handler = (event, context, callback) => {
               incrementAmount: (100 * 1024) // grow by 10 kilobytes each time buffer overflows.
           });
     
+          cnt_of_exif_extracting++;
           entry.pipe(fileWritableStreamBuffer).on('finish', function() {
 
             console.log("get head of " + fileName + ":");
@@ -57,7 +77,6 @@ exports.handler = (event, context, callback) => {
             console.log(file_size / 1024 + "kb");
 
             // 理想狀況這時應該拿得到 EXIF
-            //*
             let file_buf = fileWritableStreamBuffer.getContents();
             new ExifImage(file_buf, function (error, exifData) {
               if (error)
@@ -70,54 +89,68 @@ exports.handler = (event, context, callback) => {
                 let timestamp = new Date(dateTimeString).getTime() / 1000;
                 let baseFileName = fileName.split("/").pop();
                 let baseFileNameParts = baseFileName.split(".");
-                if (baseFileNameParts.length > 1)
-                  baseFileNameParts.pop();
+                // if (baseFileNameParts.length > 1)
+                // let extname = baseFileNameParts.pop();
                 baseFileName = baseFileNameParts.join(".") + "_" + timestamp;
 
                 console.log("Remain size: " + fileWritableStreamBuffer.size() / 1024 + "kb");
 
-                let relocate_path = data.project + "/" + data.site + "/" + data.sub_site + "/" + data.location;
+                let full_location = tag_data.project + "/" + tag_data.site + "/" + tag_data.sub_site + "/" + tag_data.location;
+                let relocate_path = "camera-trap/images/orig/" + full_location;
+                let relocate_path_json = "camera-trap/json/" + full_location;
 
-                let _id = md5(relocate_path + '/' + baseFileName);
+                let relative_url = relocate_path + '/' + baseFileName + ".jpg";
+                let relative_url_json = relocate_path_json + '/' + baseFileName + ".json";
+                let _id = md5(relative_url);
 
                 let upsert_query = JSON.stringify({
                   _id: _id,
+                  project: tag_data.project,
                   $set: {
-                    url: relocate_path + '/' + baseFileName + ".jpg",
+                    url: relative_url,
                     url_md5: _id,
                     date_time_original: exifData.exif.DateTimeOriginal,
                     date_time_original_timestamp: timestamp,
-                    project: data.project,
-                    site: data.site,
-                    sub_site: data.sub_site,
-                    location: data.location,
-                    full_location_md5: md5(relocate_path),
+                    project: tag_data.project,
+                    site: tag_data.site,
+                    sub_site: tag_data.sub_site,
+                    location: tag_data.location,
+                    full_location_md5: md5(full_location),
                     timezone: "+8"
                   },
-                  $addToSet: {related_upload_session: "upload_session_id"},
-                  $setOnInsert: true
+                  $addToSet: {related_upload_sessions: upload_session_id},
+                  $upsert: true
                 });
+
+                upsert_querys.push(upsert_query);
 
                 // original file upload
                 if (file_size)
-                s3.upload({Bucket: bucket, Key: relocate_path + '/' + baseFileName + ".jpg", Body: file_buf, ContentType: "image/jpeg"}, {},
+                s3.upload({Bucket: bucket, Key: relative_url, Body: file_buf, ContentType: "image/jpeg", Tagging: tags_string}, {},
                   function(err, data) {
                     if (err) 
                       console.log('ERROR!');
                     else
                       console.log('OK');
                   });
-                s3.upload({Bucket: bucket, Key: relocate_path + '/' + baseFileName + ".json", Body: upsert_query, ContentType: "application/json"}, {},
+                /*
+                s3.upload({Bucket: bucket, Key: relative_url_json, Body: upsert_query, ContentType: "application/json"}, {},
                   function(err, data) {
                     if (err) 
                       console.log('ERROR!');
                     else
                       console.log('OK');
                   });
+                //*/
+              } // end of exif extraction
+              cnt_of_exif_extracting--;
+              if (cnt_of_exif_extracting == 0 && unzip_end) {
+                console.log(JSON.stringify(upsert_querys, null, 2));
               }
-            });
-            //*/
 
+            });
+
+            // 暫時不處理縮圖
             // diff resolutions and quality settings
             if (0) // turn off testing
             for (let res_idx = 4; res_idx <= 8; res_idx++) {
@@ -148,7 +181,20 @@ exports.handler = (event, context, callback) => {
             }
           });
         }
-      });
+      }) // end of on entry
+      .on('finish', function() {
+        console.log("***************** UNZIP FINISH *****************");
+      })
+      .on('end', function() {
+        unzip_end = true;
+        console.log("***************** UNZIP END *****************");
+      })
+      .on('done', function() {
+        console.log("***************** UNZIP DONE *****************");
+      })
+      .on('close', function() {
+        console.log("***************** UNZIP CLOSE *****************");
+      }); 
   });
 
 }

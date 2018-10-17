@@ -29,7 +29,7 @@ multimedia_annotations:
             relation: $some_relation, for machine
             target: $some_target, the target / object of a relation, token_id is used for value
             context: where the relation is defined
-    related_upload_session:
+    related_upload_sessions:
       - $upload_session_id_1 # 用來看上傳CSV匯入結果
       - $upload_session_id_2
     # 必要的 redundancy
@@ -99,26 +99,28 @@ multimedia_metadata:
 ---
 
 project_metadata:
-  - project_id: $some_project_id
-    project_name:
-    project_alias:
-    contracting_organization: 林務局
-    project_code:
-    project_pi:
-      - PI 1
-      - PI 2
+  - project:
+    alias:
+    short:
+    contracting_organization: 委辦單位
+    code: 計畫編號
+    pi:
+      - name: PI name 1
+        user_id: (非必要)
+      - name: PI name 2
+        user_id: (非必要)
       - ...
-    project_from_year:
-    project_data_from: min(project multimedia created)
-    project_data_to: max(project multimedia created)
-    project_admin_area:
+    from_year:
+    data_from_ts: min(project multimedia created)
+    data_to_ts: max(project multimedia created)
+    admin_area:
       - area 1
       - area 2
       - ...
-    project_abstract:
-    project_remarks:
-    project_cover_image_url:
-    members:
+    abstract:
+    remarks:
+    cover_image:
+    members: # 可就實作需求，看最終需不需要這個
       - some user id1
       - some user id2
     license:
@@ -133,7 +135,7 @@ project_metadata:
     higher_heirarchy: # 考慮拿掉這個，沒有相機位置就不允許存檔
       - concat: project|site|sub_site
         md5: md5(concat)
-    locations: $location_metadata
+    locations: $location_metadata full_location_md5
     daily_test:
       - since: some datetime or timestamp
         time: test time of a day
@@ -160,17 +162,17 @@ location_metadata:
     wgs84dec_x: $wgs84dec_x1 # 一律標準化為 wgs84 十進位
     wgs84dec_y: $wgs84dec_y1
     elevation:
-    daily_test: #設計上可 override project level settings
+    daily_test: # 設計上可 override project level settings
       - since: some datetime or timestamp
         time: test time of a day
-    other_metadata:
+    other_metadata: # 暫緩
       - key: vegetation
         value:
       - key: land_cover
         value: blahblah
 ---
 
-deployment_situation:
+deployment_situation: # 暫緩
   full_location_md5:
   roughly_from:
   roughly_to:
@@ -183,6 +185,7 @@ deployment_situation:
 # 視情況決定是否用 DynamoDB 實作
 location_data_lock:
   - full_location_md5: md5-hashed full_location (id field)
+    project: string
     locked: false
     locked_by: $some_user_id
     locked_on: timestamp
@@ -218,7 +221,7 @@ ctp_users:
 
 ---
 
-login_sessions: 
+login_sessions: # 暫緩
   - login_session_id: md5-hashed access_token used as unique key
     user_id: $some_user_id # AWS Cognito 出啥就餵啥
     login_timestamp: timestamp or date time
