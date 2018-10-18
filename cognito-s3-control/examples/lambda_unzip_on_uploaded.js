@@ -19,6 +19,7 @@ exports.handler = (event, context, callback) => {
   let bucket = event.Records[0].s3.bucket.name;
 
   let file_key = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, ' '));
+  let file_key_name_part = file_key.split("/").pop();
   let params = { Bucket: bucket, Key: file_key };
   let upload_session_id = file_key.split("/")[2];
 
@@ -47,7 +48,8 @@ exports.handler = (event, context, callback) => {
 
     let parser = unzip.Parse({ decodeString: (buffer) => { return iconvLite.decode(buffer, 'utf8'); } });
 
-    let upsert_querys = [];    
+    let upsert_querys = [];
+    let relative_url_json = "camera-trap/json/" + upload_session_id + "/" + file_key_name_part + ".json";
     let unzip_end = false;
     let cnt_of_exif_extracting = 0;
 
@@ -97,16 +99,17 @@ exports.handler = (event, context, callback) => {
 
                 let full_location = tag_data.project + "/" + tag_data.site + "/" + tag_data.sub_site + "/" + tag_data.location;
                 let relocate_path = "camera-trap/images/orig/" + full_location;
-                let relocate_path_json = "camera-trap/json/" + full_location;
 
                 let relative_url = relocate_path + '/' + baseFileName + ".jpg";
-                let relative_url_json = relocate_path_json + '/' + baseFileName + ".json";
+                  
                 let _id = md5(relative_url);
+                let full_location_md5 = md5(full_location);
 
-                let upsert_query = JSON.stringify({
+                let upsert_query = {
                   _id: _id,
                   project: tag_data.project,
-                  $set: {
+                  full_location_md5: full_location_md5,
+                  $setOnInsert: {
                     url: relative_url,
                     url_md5: _id,
                     date_time_original: exifData.exif.DateTimeOriginal,
@@ -115,12 +118,13 @@ exports.handler = (event, context, callback) => {
                     site: tag_data.site,
                     sub_site: tag_data.sub_site,
                     location: tag_data.location,
-                    full_location_md5: md5(full_location),
-                    timezone: "+8"
+                    full_location_md5: full_location_md5,
+                    timezone: "+8",
+                    tokens:[{}]
                   },
                   $addToSet: {related_upload_sessions: upload_session_id},
                   $upsert: true
-                });
+                };
 
                 upsert_querys.push(upsert_query);
 
@@ -133,19 +137,21 @@ exports.handler = (event, context, callback) => {
                     else
                       console.log('OK');
                   });
-                /*
-                s3.upload({Bucket: bucket, Key: relative_url_json, Body: upsert_query, ContentType: "application/json"}, {},
+                //*
+
+              } // end of exif extraction
+              cnt_of_exif_extracting--;
+              if (cnt_of_exif_extracting == 0 && unzip_end) {
+                let upsert_querys_string = JSON.stringify(upsert_querys, null, 2);
+                console.log(relative_url_json);
+                s3.upload({Bucket: bucket, Key: relative_url_json, Body: upsert_querys_string, ContentType: "application/json"}, {},
                   function(err, data) {
                     if (err) 
                       console.log('ERROR!');
                     else
                       console.log('OK');
                   });
-                //*/
-              } // end of exif extraction
-              cnt_of_exif_extracting--;
-              if (cnt_of_exif_extracting == 0 && unzip_end) {
-                console.log(JSON.stringify(upsert_querys, null, 2));
+                // console.log(JSON.stringify(upsert_querys, null, 2));
               }
 
             });
