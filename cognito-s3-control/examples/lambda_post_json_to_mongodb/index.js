@@ -47,9 +47,9 @@ exports.handler = (event, context, callback) => {
         });
       });
 
-     // post the data
-     post_req.write(post_data);
-     post_req.end();
+      // post the data
+      post_req.write(post_data);
+      post_req.end();
 
     }
   });
