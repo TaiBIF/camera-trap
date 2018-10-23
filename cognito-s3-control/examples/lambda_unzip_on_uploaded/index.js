@@ -76,7 +76,7 @@ exports.handler = (event, context, callback) => {
         let relocate_path = root_dir + "images/orig/" + full_location;
         let relocate_path_low_quality = root_dir + "images/_res_quality_/" + full_location;
 
-        if (!fileName.match(/\.csv$/i)) {
+        if (fileName.match(/\.csv$/i)) {
           let url_csv = "upload/" + upload_session_id + "/csv/" + fileName;
           let fileWritableStreamBuffer = new streamBuffers.WritableStreamBuffer({
             initialSize: (100 * 1024),   // start at 100 kilobytes.
@@ -99,7 +99,7 @@ exports.handler = (event, context, callback) => {
             });
           });
         }
-        else if (!fileName.match(/\.jpg$|\.jpeg$/i)) {
+        else if (fileName.match(/\.jpg$|\.jpeg$/i)) {
           // console.log(entry);
           // console.log("File: " + fileName + ", Type: " + type + ", Size: " + size);
           let fileWritableStreamBuffer = new streamBuffers.WritableStreamBuffer({
