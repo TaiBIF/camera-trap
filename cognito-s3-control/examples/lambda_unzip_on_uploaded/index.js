@@ -21,7 +21,11 @@ exports.handler = (event, context, callback) => {
   let file_key = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, ' '));
   let file_key_name_part = file_key.split("/").pop();
   let params = { Bucket: bucket, Key: file_key };
-  let upload_session_id = file_key.split("/")[2];
+  let upload_session_id = file_key.split("/")[1];
+
+  // let root_dir = "camera-trap/";
+  let root_dir = "";
+
 
   s3.getObjectTagging(params, function(err, tags) {
     if (err) console.log(err, err.stack); // an error occurred
@@ -49,11 +53,11 @@ exports.handler = (event, context, callback) => {
     let parser = unzip.Parse({ decodeString: (buffer) => { return iconvLite.decode(buffer, 'utf8'); } });
 
     let mma_upsert_querys = [];
-    let mma_relative_url_json = "camera-trap/json/" + upload_session_id + "/" + file_key_name_part + ".mma.json";
+    let mma_relative_url_json = root_dir + "json/" + upload_session_id + "/" + file_key_name_part + ".mma.json";
 
     let mmm_upsert_querys = [];
-    let mmm_relative_url_json = "camera-trap/json/" + upload_session_id + "/" + file_key_name_part + ".mmm.json";
-    
+    let mmm_relative_url_json = root_dir + "json/" + upload_session_id + "/" + file_key_name_part + ".mmm.json";
+
     let unzip_close = false;
     let cnt_of_exif_extracting = 0;
 
@@ -63,11 +67,39 @@ exports.handler = (event, context, callback) => {
         let fileName = entry.path;
         // let type = entry.type; // 'Directory' or 'File'
         // let size = entry.size;
+        let baseFileName = fileName.split("/").pop();
+        let baseFileNameParts = baseFileName.split(".");
+        // if (baseFileNameParts.length > 1)
+        // let extname = baseFileNameParts.pop();
         
-        if (!fileName.match(/\.jpg$|\.jpeg$/i)) {
-          entry.autodrain();
+        let full_location = tag_data.project + "/" + tag_data.site + "/" + tag_data.sub_site + "/" + tag_data.location;
+        let relocate_path = root_dir + "images/orig/" + full_location;
+        let relocate_path_low_quality = root_dir + "images/_res_quality_/" + full_location;
+
+        if (!fileName.match(/\.csv$/i)) {
+          let url_csv = "upload/" + upload_session_id + "/csv/" + fileName;
+          let fileWritableStreamBuffer = new streamBuffers.WritableStreamBuffer({
+            initialSize: (100 * 1024),   // start at 100 kilobytes.
+            incrementAmount: (100 * 1024) // grow by 10 kilobytes each time buffer overflows.
+          });
+  
+          entry.pipe(fileWritableStreamBuffer).on('finish', function() {
+
+            console.log("get head of " + fileName + ":");
+            let file_size = fileWritableStreamBuffer.size();
+            console.log(file_size / 1024 + "kb");
+
+            let file_buf = fileWritableStreamBuffer.getContents();
+            s3.upload({Bucket: bucket, Key: url_csv, Body: file_buf, ContentType: "text/csv", Tagging: tags_string}, {},
+            function(err, data) {
+              if (err) 
+                console.log('ERROR!');
+              else
+                console.log('OK');
+            });
+          });
         }
-        else {
+        else if (!fileName.match(/\.jpg$|\.jpeg$/i)) {
           // console.log(entry);
           // console.log("File: " + fileName + ", Type: " + type + ", Size: " + size);
           let fileWritableStreamBuffer = new streamBuffers.WritableStreamBuffer({
@@ -91,24 +123,17 @@ exports.handler = (event, context, callback) => {
                 console.log(exifData); // Do something with your data!
 
                 // 太大了，暫時不存
-                delete exifData.MakerNote;
+                delete exifData.exif.MakerNote;
 
                 let dateTimeComponents = exifData.exif.DateTimeOriginal.match(/\d+/g);
                 let dateTimeString = dateTimeComponents[0] + "-" + dateTimeComponents[1] + "-" + dateTimeComponents[2] + " " + dateTimeComponents[3] + ":" + dateTimeComponents[4] + ":" + dateTimeComponents[5];
                 let timestamp = new Date(dateTimeString).getTime() / 1000;
-                let baseFileName = fileName.split("/").pop();
-                let baseFileNameParts = baseFileName.split(".");
-                // if (baseFileNameParts.length > 1)
-                // let extname = baseFileNameParts.pop();
-                baseFileName = baseFileNameParts.join(".") + "_" + timestamp;
 
                 console.log("Remain size: " + fileWritableStreamBuffer.size() / 1024 + "kb");
 
-                let full_location = tag_data.project + "/" + tag_data.site + "/" + tag_data.sub_site + "/" + tag_data.location;
-                let relocate_path = "camera-trap/images/orig/" + full_location;
-                let relocate_path_low_quality = "camera-trap/images/_res_quality_/" + full_location;
-
+                baseFileName = baseFileNameParts.join(".") + "_" + timestamp;
                 let relative_url = relocate_path + '/' + baseFileName + ".jpg";
+                let relative_url_lq = relocate_path_low_quality + '/' + baseFileName + ".webp";
                   
                 let _id = md5(relative_url);
                 let full_location_md5 = md5(full_location);
@@ -185,6 +210,31 @@ exports.handler = (event, context, callback) => {
                   });
                 //*
 
+                // create compressed image
+                let quality = 60;
+                let res_idx = 4;
+                let width = 128 * res_idx;
+                let height = 3 * width / 4;
+  
+                sharp(file_buf)
+                  .withMetadata()
+                  .resize(width, height)
+                  .webp({quality: quality})
+                  // .jpeg({quality: 80})
+                  // .webp({ lossless: true })
+                  .toBuffer()
+                  .then(function(resized_data){
+                    // 再用EXIF做為重新命名的依據
+                    console.log(relocate_path_low_quality);
+                    if (file_size)
+                    s3.upload({Bucket: bucket, Key: relative_url_lq.replace("_res_quality_", width + "q" + quality), Body: resized_data, ContentType: "image/webp", Tagging: tags_string}, {},
+                      function(err, data) {
+                        if (err) 
+                          console.log('ERROR!');
+                        else
+                          console.log('OK');
+                      });
+                  });
               } // end of exif extraction
               cnt_of_exif_extracting--;
               if (cnt_of_exif_extracting == 0 && unzip_close) {
@@ -194,7 +244,7 @@ exports.handler = (event, context, callback) => {
                 }
                 let mma_upsert_querys_string = JSON.stringify(mma_op, null, 2);
                 console.log(mma_relative_url_json);
-                s3.upload({Bucket: bucket, Key: mma_relative_url_json, Body: mma_upsert_querys_string, ContentType: "application/json"}, {},
+                s3.upload({Bucket: bucket, Key: mma_relative_url_json, Body: mma_upsert_querys_string, ContentType: "application/json", Tagging: tags_string}, {},
                   function(err, data) {
                     if (err) 
                       console.log('ERROR!');
@@ -209,7 +259,7 @@ exports.handler = (event, context, callback) => {
                 }
                 let mmm_upsert_querys_string = JSON.stringify(mmm_op, null, 2);
                 console.log(mmm_relative_url_json);
-                s3.upload({Bucket: bucket, Key: mmm_relative_url_json, Body: mmm_upsert_querys_string, ContentType: "application/json"}, {},
+                s3.upload({Bucket: bucket, Key: mmm_relative_url_json, Body: mmm_upsert_querys_string, ContentType: "application/json", Tagging: tags_string}, {},
                   function(err, data) {
                     if (err) 
                       console.log('ERROR!');
@@ -217,39 +267,16 @@ exports.handler = (event, context, callback) => {
                       console.log('OK');
                   });
               }
+
             });
 
             // diff resolutions and quality settings
-            for (let res_idx = 4; res_idx <= 8; res_idx++) {
-              for (let quality = 60; quality <= 80; quality = quality + 10) {
-                let width = 128 * res_idx;
-                let height = 3 * width / 4;
 
-                sharp(file_buf)
-                  .withMetadata()
-                  .resize(width, height)
-                  .webp({quality: quality})
-                  // .jpeg({quality: 80})
-                  // .webp({ lossless: true })
-                  .toBuffer()
-                  .then(function(resized_data){
-                    // 再用EXIF做為重新命名的依據
-                    console.log(relocate_path_low_quality);
-                    if (file_size)
-                    s3.upload({Bucket: bucket, Key: relocate_path_low_quality.replace("_res_quality_", width + "q" + quality) + "/" + fileName + ".webp", Body: resized_data, ContentType: "image/webp"}, {},
-                      function(err, data) {
-                        if (err) 
-                          console.log('ERROR!');
-                        else
-                          console.log('OK');
-                      });
 
-                  });
-                break; // 最低畫質
-              }
-              break; // 最低解析度
-            }
           });
+        }
+        else  {
+          entry.autodrain();
         }
       }) // end of on entry
       //.on('finish', function() {
