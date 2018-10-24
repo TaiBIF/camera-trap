@@ -151,6 +151,7 @@ exports.handler = (event, context, callback) => {
                     url: relative_url,
                     url_md5: _id,
                     date_time_original_timestamp: timestamp, // 這個值可從 CSV 中的拍照時間還原。或在相機設定錯誤時覆蓋掉 metadata
+                    date_time_corrected_timestamp: timestamp,
                     project: tag_data.project,
                     site: tag_data.site,
                     sub_site: tag_data.sub_site,
@@ -187,6 +188,7 @@ exports.handler = (event, context, callback) => {
                     url: relative_url,
                     url_md5: _id,
                     date_time_original_timestamp: timestamp,
+                    date_time_corrected_timestamp: timestamp,
                     project: tag_data.project,
                     site: tag_data.site,
                     sub_site: tag_data.sub_site,

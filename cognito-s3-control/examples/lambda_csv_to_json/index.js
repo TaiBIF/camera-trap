@@ -5,12 +5,7 @@ let s3 = new AWS.S3();
 let https = require('https');
 let md5 = require('md5');
 
-let parse = require('csv-parse');
-let parser = parse({
-  columns: true,
-  trim: true,
-  skip_empty_lines: true
-});
+let parse = require('csv-parse/lib/sync');
 
 exports.handler = (event, context, callback) => {
   
@@ -94,8 +89,8 @@ exports.handler = (event, context, callback) => {
     let post_req = https.request(post_options, function(res) {
       res.setEncoding('utf8');
       res.on('data', function (res) {
-        console.log('Response: ' + res);
-        validate_and_create_json(res);
+        // console.log('Response: ' + res);
+        validate_and_create_json(JSON.parse(res));
         // context.succeed();
       });
       res.on('error', function (e) {
@@ -110,7 +105,7 @@ exports.handler = (event, context, callback) => {
 
     let species_field = "species";
     let not_data_fields = [
-      "project", "site", "sub_site", "location", "date_time", "filename"
+      "project", "site", "sub_site", "location", "date_time", "corrected_date_time", "filename"
     ];
     let full_location = tag_data.project + "/" + tag_data.site + "/" + tag_data.sub_site + "/" + tag_data.location;
     let full_location_md5 = md5(full_location);
@@ -139,6 +134,8 @@ exports.handler = (event, context, callback) => {
             }
           }
         });
+
+        console.log(validators);
       }
 
       let mma_upsert_querys = [];
@@ -152,32 +149,73 @@ exports.handler = (event, context, callback) => {
       let mma = {};
       let mmm = {};
 
-      s3.getObject(params).createReadStream()
-        .pipe(parser)
-        .on('readable', function() {
-          let record;
+      s3.getObject(params, function(err, data) {
+        if (err) {
+          console.log(err);
+        }
+        else {
+          let csv_string = data.Body.toString();
+          let records = parse(csv_string,
+            {
+              columns: true,
+              trim: true,
+              skip_empty_lines: true
+            }
+          );
           
-          let token_error_flag = false;
-          let data = [];
+          // console.log(records);
 
-          record = this.read();
-          if (record) {
+          records.forEach(function(record){
+            // 每筆 record 就是一個 token          
+
+            let token_error_flag = false;
+            let data = [];
 
             let baseFileName;
             let baseFileNameParts;
-            let timestamp;
+            let timestamp, corrected_timestamp;
 
-            timestamp = new Date(record['date_time']).getTime() / 1000;
+            timestamp = new Date(record.date_time).getTime() / 1000;
+            
+            let corrected_date_time = record.corrected_date_time ? record.corrected_date_time : record.date_time;
+            corrected_timestamp = new Date(corrected_date_time).getTime() / 1000;
+
+            if (daily_test_time) {
+              let dtt_re = new RegExp(daily_test_time + "$");
+              let dtt_matched = dtt_re.exec(corrected_date_time);
+              if (dtt_matched) {
+                record[species_field] = '定時測試';
+              }
+            }
+
             baseFileNameParts = record['filename'].split(".");
-            baseFileNameParts.pop();
+
+            let ext = baseFileNameParts.pop();
+            // console.log(['ext', ext]);
+            
+            let mm_type = "Invalid";
+            if (ext.match(/jpg$|jpeg$/i)) {
+              ext = "jpg";
+              mm_type = "StillImage";
+            }
+            else if (ext.match(/mp4$/i)) {
+              ext = "mp4";
+              mm_type = "MovingImage";
+            }
+            else {
+              // TODO: throw errer
+            }
+
             baseFileName = baseFileNameParts.join(".") + "_" + timestamp;
             let relocate_path = root_dir + "images/orig/" + full_location;
-            let relative_url = relocate_path + '/' + baseFileName + ".jpg";
+            let relative_url = relocate_path + '/' + baseFileName + "." + ext;
             let _id = md5(relative_url);
 
-            if (!mma[_id]) mma[_id] = {tokens: []};
+            if (!mma[_id]) mma[_id] = {$set: {tokens: []}, $setOnInsert: {}};
 
-            console.log(record);
+            record.date_time
+            // console.log(record);
+            // validating data
             for (let k in record) {
 
               if (not_data_fields.indexOf(k) >= 0) {
@@ -190,7 +228,7 @@ exports.handler = (event, context, callback) => {
 
               let data_error_flag = false;
               if (record.hasOwnProperty(k)) {
-                if (validators[k] && !validators[k].indexOf(record[k])) {
+                if (validators[k] && validators[k].indexOf(record[k]) < 0) {
                   data_error_flag = true;
                   token_error_flag = true;
                 }
@@ -204,26 +242,47 @@ exports.handler = (event, context, callback) => {
               })
             }
 
-            mma[_id].tokens.push(
+            mma[_id].$set.tokens.push(
               {
                 data: data,
                 token_error_flag: token_error_flag
               }
             );
 
-            mma[_id].url_md5 = _id;
+            // for access control
+            mma[_id]._id = _id;
             mma[_id].project = tag_data.project;
             mma[_id].full_location_md5 = full_location_md5;
-            mma[_id].url = relative_url;
-            mma[_id].date_time_original_timestamp = timestamp;
 
-          }
-        })
-        .on('end', function(){
-          console.log('END');
-          console.log(JSON.stringify(mma, null, 2));
+            // set value
+            mma[_id].$set.date_time_corrected_timestamp = corrected_timestamp;
+            mma[_id].$set.modified_by = tag_data.user_id;
+            mma[_id].$set.type = mm_type;
+
+            // set on insert (upsert)
+            mma[_id].$setOnInsert = {
+              url: relative_url,
+              url_md5: _id,
+              date_time_original_timestamp: timestamp,
+              project: tag_data.project,
+              site: tag_data.site,
+              sub_site: tag_data.sub_site,
+              location: tag_data.location,
+              full_location_md5: full_location_md5,
+              timezone: "+8"
+            }
+            mma[_id].$addToSet = {
+              related_upload_sessions: upload_session_id
+            }
+          });
+          //*/
+          let mma_array = Object.keys(mma).map(function(key) {
+            return mma[key];
+          });
+          console.log(JSON.stringify(mma_array, null, 2));
           context.succeed();
-        });
+        }
+      });
     }
   });
 
