@@ -11,6 +11,8 @@ let ExifImage = require('exif').ExifImage;
 let iconvLite = require('iconv-lite');
 const sharp = require('sharp');
 
+let species_field = "vernacular-name-zhtw";
+
 exports.handler = (event, context, callback) => {
   
   console.log(event.Records[0].s3.object);
@@ -160,7 +162,7 @@ exports.handler = (event, context, callback) => {
                     timezone: "+8",
                     tokens:[{
                       data :[{
-                        key: "vernacular-name-zhtw",
+                        key: species_field,
                         value: ""
                       }]
                     }]

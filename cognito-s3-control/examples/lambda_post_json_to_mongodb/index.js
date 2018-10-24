@@ -30,7 +30,7 @@ exports.handler = (event, context, callback) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Basic ' + Buffer.from('Username:Password').toString('base64')
+          // 'Authorization': 'Basic ' + Buffer.from('Username:Password').toString('base64')
         }
       };
 
@@ -48,7 +48,8 @@ exports.handler = (event, context, callback) => {
       });
 
       // post the data
-      post_req.write(post_data, (err) => post_req.end());
+      post_req.write(post_data);
+      post_req.end();
 
     }
   });

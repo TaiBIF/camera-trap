@@ -7,6 +7,17 @@ let md5 = require('md5');
 
 let parse = require('csv-parse/lib/sync');
 
+let field_map = {
+  date_time: 'date_time',
+  species: 'species',
+  project: 'project',
+  site: 'site',
+  sub_site: 'sub_site',
+  location: 'location',
+  filename: 'filename',
+  corrected_date_time: 'corrected_date_time'
+}
+
 exports.handler = (event, context, callback) => {
   
   let bucket = event.Records[0].s3.bucket.name;
@@ -103,9 +114,14 @@ exports.handler = (event, context, callback) => {
     post_req.write(post_aggregate_string);
     post_req.end();
 
-    let species_field = "species";
     let not_data_fields = [
-      "project", "site", "sub_site", "location", "date_time", "corrected_date_time", "filename"
+      field_map.project, 
+      field_map.site, 
+      field_map.sub_site, 
+      field_map.location, 
+      field_map.date_time, 
+      field_map.corrected_date_time, 
+      field_map.filename
     ];
     let full_location = tag_data.project + "/" + tag_data.site + "/" + tag_data.sub_site + "/" + tag_data.location;
     let full_location_md5 = md5(full_location);
@@ -120,7 +136,7 @@ exports.handler = (event, context, callback) => {
         species_list = res.results[0].species_list;
         
         if (species_list.length > 0) {
-          validators[species_field] = species_list;
+          validators[field_map.species] = species_list;
         }
 
         if (res.results[0].daily_test_time[0]) {
@@ -130,7 +146,9 @@ exports.handler = (event, context, callback) => {
         res.results.forEach(function(f){
           if (f.widget_type == 'select') {
             if (f.widget_select_options.length > 0) {
-              validators[f.key] = f.widget_select_options;
+              if (field_map[f.key]) {
+                validators[f.key] = f.widget_select_options;
+              }
             }
           }
         });
@@ -138,7 +156,7 @@ exports.handler = (event, context, callback) => {
         console.log(validators);
       }
 
-      let mma_upsert_querys = [];
+      let mma_upsert_querys;
       let mma_relative_url_json = root_dir + "json/" + upload_session_id + "/" + file_key_name_part + ".mma.json";
 
       let mmm_upsert_querys = [];
@@ -175,20 +193,20 @@ exports.handler = (event, context, callback) => {
             let baseFileNameParts;
             let timestamp, corrected_timestamp;
 
-            timestamp = new Date(record.date_time).getTime() / 1000;
+            timestamp = new Date(record[field_map.date_time]).getTime() / 1000;
             
-            let corrected_date_time = record.corrected_date_time ? record.corrected_date_time : record.date_time;
+            let corrected_date_time = record[field_map.corrected_date_time] ? record[field_map.corrected_date_time] : record[field_map.date_time];
             corrected_timestamp = new Date(corrected_date_time).getTime() / 1000;
 
             if (daily_test_time) {
               let dtt_re = new RegExp(daily_test_time + "$");
               let dtt_matched = dtt_re.exec(corrected_date_time);
               if (dtt_matched) {
-                record[species_field] = '定時測試';
+                record[field_map.species] = '定時測試';
               }
             }
 
-            baseFileNameParts = record['filename'].split(".");
+            baseFileNameParts = record[field_map.filename].split(".");
 
             let ext = baseFileNameParts.pop();
             // console.log(['ext', ext]);
@@ -213,7 +231,6 @@ exports.handler = (event, context, callback) => {
 
             if (!mma[_id]) mma[_id] = {$set: {tokens: []}, $setOnInsert: {}};
 
-            record.date_time
             // console.log(record);
             // validating data
             for (let k in record) {
@@ -276,11 +293,27 @@ exports.handler = (event, context, callback) => {
             }
           });
           //*/
-          let mma_array = Object.keys(mma).map(function(key) {
+          mma_upsert_querys = Object.keys(mma).map(function(key) {
             return mma[key];
           });
-          console.log(JSON.stringify(mma_array, null, 2));
-          context.succeed();
+
+          console.log(JSON.stringify(mma_upsert_querys, null, 2));
+          
+          let mma_op = {
+            endpoint: "/multimedia-annotations/bulk-update",
+            post: mma_upsert_querys
+          }
+
+          let mma_upsert_querys_string = JSON.stringify(mma_op, null, 2);
+
+          s3.upload({Bucket: bucket, Key: mma_relative_url_json, Body: mma_upsert_querys_string, ContentType: "application/json", Tagging: tags_string}, {},
+            function(err, data) {
+              if (err) 
+                console.log('ERROR!');
+              else
+                console.log('OK');
+            });
+
         }
       });
     }
