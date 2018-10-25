@@ -243,7 +243,7 @@ exports.handler = (event, context, callback) => {
               cnt_of_exif_extracting--;
               if (cnt_of_exif_extracting == 0 && unzip_close) {
                 let mma_op = {
-                  endpoint:"/multimedia-annotations/bulk-update",
+                  endpoint: "/multimedia-annotations/bulk-update",
                   post: mma_upsert_querys
                 }
                 let mma_upsert_querys_string = JSON.stringify(mma_op, null, 2);
