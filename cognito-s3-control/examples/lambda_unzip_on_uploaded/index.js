@@ -11,7 +11,7 @@ let ExifImage = require('exif').ExifImage;
 let iconvLite = require('iconv-lite');
 const sharp = require('sharp');
 
-let species_field = "vernacular-name-zhtw";
+let species_field = "species";
 
 exports.handler = (event, context, callback) => {
   
@@ -70,6 +70,7 @@ exports.handler = (event, context, callback) => {
         // let type = entry.type; // 'Directory' or 'File'
         // let size = entry.size;
         let baseFileName = fileName.split("/").pop();
+        let uploaded_baseFileName = baseFileName;
         let baseFileNameParts = baseFileName.split(".");
         // if (baseFileNameParts.length > 1)
         // let extname = baseFileNameParts.pop();
@@ -159,10 +160,12 @@ exports.handler = (event, context, callback) => {
                     sub_site: tag_data.sub_site,
                     location: tag_data.location,
                     full_location_md5: full_location_md5,
+                    uploaded_file_name: uploaded_baseFileName,
                     timezone: "+8",
                     tokens:[{
                       data :[{
                         key: species_field,
+                        label: "物種",
                         value: ""
                       }]
                     }]
@@ -196,6 +199,7 @@ exports.handler = (event, context, callback) => {
                     sub_site: tag_data.sub_site,
                     location: tag_data.location,
                     full_location_md5: full_location_md5,
+                    uploaded_file_name: uploaded_baseFileName,
                     timezone: "+8"
                   },
                   $upsert: true

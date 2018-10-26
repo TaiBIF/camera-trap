@@ -7,6 +7,7 @@ let md5 = require('md5');
 
 let parse = require('csv-parse/lib/sync');
 
+// translate controlled fields to user fields
 let field_map = {
   date_time: 'date_time',
   species: 'species',
@@ -21,6 +22,7 @@ let field_map = {
   antler: 'antler'
 }
 
+// fields that are parts of metadata instead of annotation data
 let not_data_fields = [
   field_map.project, 
   field_map.site, 
@@ -31,11 +33,16 @@ let not_data_fields = [
   field_map.filename
 ];
 
+// translate user fields to controlled fields
 let inverse_field_map = {};
 inverse_field_map[field_map.project] = 'project';
 inverse_field_map[field_map.site] = 'site';
 inverse_field_map[field_map.sub_site] = 'sub_site';
 inverse_field_map[field_map.location] = 'location';
+
+let required_fileds = [
+  
+];
 
 function post_to_api (endpoint_path, json, post_callback) {
   let post_options = {
@@ -222,8 +229,9 @@ exports.handler = (event, context, callback) => {
                 record[field_map.species] = '定時測試';
               }
             }
-
-            baseFileNameParts = record[field_map.filename].split(".");
+            baseFileName = record[field_map.filename].split("/").pop();
+            baseFileNameParts = baseFileName.split(".");
+            let uploaded_baseFileName = baseFileName;
 
             let ext = baseFileNameParts.pop();
             // console.log(['ext', ext]);
@@ -251,12 +259,26 @@ exports.handler = (event, context, callback) => {
             // console.log(record);
             // validating data
             let unmatched_metadata = false;
+            let missing_required = false;
             for (let k in record) {
 
               if (not_data_fields.indexOf(k) >= 0) {
                 // TODO: make some validation
-                if (tag_data[inverse_field_map[k]] && (tag_data[inverse_field_map[k]] != record[k])) {
+                if (
+                  record[k] &&
+                  tag_data[inverse_field_map[k]] && 
+                  (tag_data[inverse_field_map[k]] != record[k])) {
                   unmatched_metadata = true;
+                  break;
+                }
+                continue;
+              }
+
+              if (required_fields.indexOf(k) >= 0) {
+                if (
+                  record[k] === undefined &&
+                  !tag_data[inverse_field_map[k]]) {
+                  missing_required = true;
                   break;
                 }
                 continue;
@@ -279,6 +301,12 @@ exports.handler = (event, context, callback) => {
             }
 
             if (unmatched_metadata) {
+              // TODO: throw error?
+              delete mma[_id];
+              return;
+            }
+
+            if (missing_required) {
               // TODO: throw error?
               delete mma[_id];
               return;
@@ -311,6 +339,7 @@ exports.handler = (event, context, callback) => {
               sub_site: tag_data.sub_site,
               location: tag_data.location,
               full_location_md5: full_location_md5,
+              uploaded_file_name: uploaded_baseFileName,
               timezone: "+8"
             }
             mma[_id].$addToSet = {
@@ -320,12 +349,18 @@ exports.handler = (event, context, callback) => {
 
           let overlap_range = {
             "query": {
-              "date_time_corrected_timestamp": {"$gte": min_timestamp},
-              "date_time_corrected_timestamp": {"$lte": min_timestamp},
+              "date_time_corrected_timestamp": {"$gte": min_timestamp, "$lte": max_timestamp},
             }
           }
 
+          post_to_api("/api/multimedia-annotations/exists", overlap_range, function(res) {
+            console.log(JSON.stringify(overlap_range, null, 2));
+            if (res.results !== null) {
+              post_to_api("/api/announcements/bulk-replace", {}, function(res) {
 
+              });
+            }
+          });
 
           //*/
           mma_upsert_querys = Object.keys(mma).map(function(key) {
