@@ -73,7 +73,7 @@ exports.handler = (event, context, callback) => {
         let uploaded_baseFileName = baseFileName;
         let baseFileNameParts = baseFileName.split(".");
         // if (baseFileNameParts.length > 1)
-        // let extname = baseFileNameParts.pop();
+        baseFileNameParts.pop();
         
         let full_location = tag_data.project + "/" + tag_data.site + "/" + tag_data.sub_site + "/" + tag_data.location;
         let relocate_path = root_dir + "images/orig/" + full_location;

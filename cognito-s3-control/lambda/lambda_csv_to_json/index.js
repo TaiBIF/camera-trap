@@ -216,6 +216,7 @@ exports.handler = (event, context, callback) => {
 
           let unmatched_metadata = false;
           let unmatched_fields = [];
+          let problematic_ids = new Set();
           let missing_required = false;
           let missing_required_fields = [];
 
@@ -318,6 +319,7 @@ exports.handler = (event, context, callback) => {
                   unmatched_fields.push(
                     "第 `" + (record_idx + 1) + "` 行欄位 `" + k + "` 上傳設定： `" + tag_data[inverse_field_map[k]] +"`, 資料值： `" + record[k] + "`;"
                   );
+                  problematic_ids.add(_id);
                   // break;
                 }
                 continue;
@@ -459,7 +461,8 @@ exports.handler = (event, context, callback) => {
                 project: tag_data.project,
                 $set: {
                   status: "ERROR",
-                  messages: data_errors
+                  messages: data_errors,
+                  problematic_ids: Array.from(problematic_ids)
                 }
               }], function(res) {
                 console.log(["ERROR REPORTING", res]);
