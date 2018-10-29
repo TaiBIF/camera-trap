@@ -34,23 +34,27 @@ exports.handler = (event, context, callback) => {
         }
       };
 
+
+      let force_import = (event.force_import === undefined) ? true : event.force_import;
+
+      if (force_import || !json.hold) {
       // Set up the request
-      let post_req = https.request(post_options, function(res) {
-        res.setEncoding('utf8');
-        res.on('data', function (chunk) {
-          console.log('Response: ' + chunk);
-          context.succeed();
+        let post_req = https.request(post_options, function(res) {
+          res.setEncoding('utf8');
+          res.on('data', function (chunk) {
+            console.log('Response: ' + chunk);
+            context.succeed();
+          });
+          res.on('error', function (e) {
+            console.log("Got error: " + e.message);
+            context.done(null, 'FAILURE');
+          });
         });
-        res.on('error', function (e) {
-          console.log("Got error: " + e.message);
-          context.done(null, 'FAILURE');
-        });
-      });
 
-      // post the data
-      post_req.write(post_data);
-      post_req.end();
-
+        // post the data
+        post_req.write(post_data);
+        post_req.end();
+      }
     }
   });
   

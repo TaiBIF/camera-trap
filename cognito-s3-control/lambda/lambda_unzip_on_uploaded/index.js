@@ -79,11 +79,39 @@ exports.handler = (event, context, callback) => {
         let relocate_path = root_dir + "images/orig/" + full_location;
         let relocate_path_low_quality = root_dir + "images/_res_quality_/" + full_location;
 
-        if (fileName.match(/\.csv$/i)) {
+        if (fileName.match(/\.(mp4)$|\.(avi)$/i)) {
+          let matched_name = fileName.match(/\.(mp4)$|\.(avi)$/i);
+          let ext = matched_name[1] || matched_name[2];
+          ext = ext.toLocaleLowerCase();
+
+          // 路徑還是先用 video
+          let url_video = "upload/" + upload_session_id + "/video/" + fileName;
+          let fileWritableStreamBuffer = new streamBuffers.WritableStreamBuffer({
+            initialSize: (1000 * 1024),   // start at 1000 kilobytes.
+            incrementAmount: (1000 * 1024) // grow by 1000 kilobytes each time buffer overflows.
+          });
+  
+          entry.pipe(fileWritableStreamBuffer).on('finish', function() {
+
+            console.log("get head of " + fileName + ":");
+            let file_size = fileWritableStreamBuffer.size();
+            console.log(file_size / 1024 + "kb");
+
+            let file_buf = fileWritableStreamBuffer.getContents();
+            s3.upload({Bucket: bucket, Key: url_video, Body: file_buf, ContentType: "video/" + ext, Tagging: tags_string}, {},
+            function(err, data) {
+              if (err) 
+                console.log('ERROR!');
+              else
+                console.log('OK');
+            });
+          });
+        }
+        else if (fileName.match(/\.csv$/i)) {
           let url_csv = "upload/" + upload_session_id + "/csv/" + fileName;
           let fileWritableStreamBuffer = new streamBuffers.WritableStreamBuffer({
             initialSize: (100 * 1024),   // start at 100 kilobytes.
-            incrementAmount: (100 * 1024) // grow by 10 kilobytes each time buffer overflows.
+            incrementAmount: (100 * 1024) // grow by 100 kilobytes each time buffer overflows.
           });
   
           entry.pipe(fileWritableStreamBuffer).on('finish', function() {
@@ -107,7 +135,7 @@ exports.handler = (event, context, callback) => {
           // console.log("File: " + fileName + ", Type: " + type + ", Size: " + size);
           let fileWritableStreamBuffer = new streamBuffers.WritableStreamBuffer({
               initialSize: (100 * 1024),   // start at 100 kilobytes.
-              incrementAmount: (100 * 1024) // grow by 10 kilobytes each time buffer overflows.
+              incrementAmount: (100 * 1024) // grow by 100 kilobytes each time buffer overflows.
           });
     
           cnt_of_exif_extracting++;
@@ -130,7 +158,14 @@ exports.handler = (event, context, callback) => {
 
                 let dateTimeComponents = exifData.exif.DateTimeOriginal.match(/\d+/g);
                 let dateTimeString = dateTimeComponents[0] + "-" + dateTimeComponents[1] + "-" + dateTimeComponents[2] + " " + dateTimeComponents[3] + ":" + dateTimeComponents[4] + ":" + dateTimeComponents[5];
-                let timestamp = new Date(dateTimeString).getTime() / 1000;
+
+                let date_time_obj = new Date(dateTimeString);
+                let timestamp = date_time_obj.getTime() / 1000;
+
+                let year = date_time_obj.getFullYear();
+                let month = date_time_obj.getMonth() + 1;
+                let day = date_time_obj.getDate();
+                let hour = date_time_obj.getHours();
 
                 console.log("Remain size: " + fileWritableStreamBuffer.size() / 1024 + "kb");
 
@@ -162,6 +197,10 @@ exports.handler = (event, context, callback) => {
                     full_location_md5: full_location_md5,
                     uploaded_file_name: uploaded_baseFileName,
                     timezone: "+8",
+                    year: year,
+                    month: month,
+                    day: day,
+                    hour: hour,
                     tokens:[{
                       data :[{
                         key: species_field,
@@ -200,7 +239,11 @@ exports.handler = (event, context, callback) => {
                     location: tag_data.location,
                     full_location_md5: full_location_md5,
                     uploaded_file_name: uploaded_baseFileName,
-                    timezone: "+8"
+                    timezone: "+8",
+                    year: year,
+                    month: month,
+                    day: day,
+                    hour: hour,
                   },
                   $upsert: true
                 };
