@@ -214,7 +214,7 @@ exports.handler = (event, context, callback) => {
           let max_timestamp = -Infinity;
           let min_timestamp = Infinity;
 
-          let unmatched_metadata = false;
+          let unmatched_metadata_exists = false;
           let unmatched_fields = [];
           let problematic_ids = new Set();
           let missing_required = false;
@@ -228,13 +228,16 @@ exports.handler = (event, context, callback) => {
             }
           });
 
+          let force_import_validated = true;
+          // 每筆 record 對應到一個 token，但單一多媒體檔也可能同時有多個 tokens，因此要用 unique id 為 group
           records.forEach(function (record, record_idx) {
-
-            if (unmatched_metadata || missing_required) {
+            
+            if (!((!unmatched_metadata_exists || force_import_validated) && !missing_required)) {
               return;
             }
 
-            // 每筆 record 對應到一個 token，但單一多媒體檔也可能同時有多個 tokens，因此要用 unique id 為 group
+            let unmatched_metadata = false;
+
             let token_error_flag = false;
             let data = [];
 
@@ -316,6 +319,7 @@ exports.handler = (event, context, callback) => {
                   tag_data[inverse_field_map[k]] && 
                   (tag_data[inverse_field_map[k]] != record[k])) {
                   unmatched_metadata = true;
+                  unmatched_metadata_exists = true;
                   unmatched_fields.push(
                     "第 `" + (record_idx + 1) + "` 行欄位 `" + k + "` 上傳設定： `" + tag_data[inverse_field_map[k]] +"`, 資料值： `" + record[k] + "`;"
                   );
@@ -349,11 +353,18 @@ exports.handler = (event, context, callback) => {
               return;
             }
 
+            let species_shortcut = "尚未辨識";
+            if (record[field_map.species]) {
+              species_shortcut = record[field_map.species];
+            }
+
+            console.log(['SPECIES SHORTCUT', species_shortcut]);
             // set mma tokens
             mma[_id].$set.tokens.push(
               {
                 data: data,
-                token_error_flag: token_error_flag
+                token_error_flag: token_error_flag,
+                species_shortcut: species_shortcut
               }
             );
 
@@ -425,7 +436,7 @@ exports.handler = (event, context, callback) => {
           }); // end of records
 
           // 如果缺欄位或欄位值不一致
-          if (unmatched_metadata) {
+          if (unmatched_metadata_exists) {
             let unmatched_fields_string = unmatched_fields.join('`, `');
             data_errors.push(
               "以下欄位資訊與上傳設定值不一致: " + unmatched_fields_string + "."
@@ -469,8 +480,7 @@ exports.handler = (event, context, callback) => {
               });
             }
 
-            let force_import_validated = true;
-            if ((!unmatched_fields || force_import_validated) && !missing_required) {
+            if ((!unmatched_metadata_exists || force_import_validated) && !missing_required) {
 
               mma_upsert_querys = Object.keys(mma).map(function(key) {
                 return mma[key];
