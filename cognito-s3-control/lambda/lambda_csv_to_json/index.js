@@ -8,6 +8,8 @@ let md5 = require('md5');
 let parse = require('csv-parse/lib/sync');
 
 // translate controlled fields to user fields
+// key: controlled field names used in code
+// value: field names in data
 let field_map = {
   date_time: 'date_time',
   species: 'species',
@@ -18,7 +20,7 @@ let field_map = {
   filename: 'filename',
   corrected_date_time: 'corrected_date_time',
   sex: 'sex',
-  'life-stage': 'life_stage',
+  lifeStage: 'life_stage',
   antler: 'antler'
 }
 
@@ -33,16 +35,16 @@ let not_data_fields = [
   field_map.filename
 ];
 
-// translate user fields to controlled fields
+// translate user fields to controlled field names
 let inverse_field_map = {};
 inverse_field_map[field_map.projectTitle] = 'projectTitle';
 inverse_field_map[field_map.site] = 'site';
 inverse_field_map[field_map.subSite] = 'subSite';
 inverse_field_map[field_map.cameraLocation] = 'cameraLocation';
 
+// these fields are required
 let required_fileds = [
   field_map.site,
-  field_map.subSite,
   field_map.cameraLocation
 ];
 
