@@ -11,10 +11,10 @@ let parse = require('csv-parse/lib/sync');
 let field_map = {
   date_time: 'date_time',
   species: 'species',
-  project: 'project',
+  projectTitle: 'project',
   site: 'site',
-  sub_site: 'sub_site',
-  location: 'location',
+  subSite: 'sub_site',
+  cameraLocation: 'location',
   filename: 'filename',
   corrected_date_time: 'corrected_date_time',
   sex: 'sex',
@@ -24,10 +24,10 @@ let field_map = {
 
 // fields that are parts of metadata instead of annotation data
 let not_data_fields = [
-  field_map.project, 
+  field_map.projectTitle, 
   field_map.site, 
-  field_map.sub_site, 
-  field_map.location, 
+  field_map.subSite, 
+  field_map.cameraLocation, 
   field_map.date_time, 
   field_map.corrected_date_time, 
   field_map.filename
@@ -35,13 +35,15 @@ let not_data_fields = [
 
 // translate user fields to controlled fields
 let inverse_field_map = {};
-inverse_field_map[field_map.project] = 'project';
+inverse_field_map[field_map.projectTitle] = 'projectTitle';
 inverse_field_map[field_map.site] = 'site';
-inverse_field_map[field_map.sub_site] = 'sub_site';
-inverse_field_map[field_map.location] = 'location';
+inverse_field_map[field_map.subSite] = 'subSite';
+inverse_field_map[field_map.cameraLocation] = 'cameraLocation';
 
 let required_fileds = [
-  
+  field_map.site,
+  field_map.subSite,
+  field_map.cameraLocation
 ];
 
 function post_to_api (endpoint_path, json, post_callback) {
@@ -105,15 +107,15 @@ exports.handler = (event, context, callback) => {
 
     let tags_string = encodeQueryData(tag_data);
 
-    if (!tag_data.sub_site) tag_data.sub_site = 'NULL';
+    if (!tag_data.subSite) tag_data.subSite = 'NULL';
 
     let post_aggregate = [
-      {"$match": {"_id": tag_data.project}},
-      {"$unwind": "$data_field_enabled"},
+      {"$match": {"_id": tag_data.projectTitle}},
+      {"$unwind": "$dataFieldEnabled"},
       {
         "$lookup": {
-          "from": "data-fields-available",
-          "localField": "data_field_enabled",
+          "from": "DataFieldAvailable",
+          "localField": "dataFieldEnabled",
           "foreignField": "key",
           "as": "field_details"
         }
@@ -121,54 +123,54 @@ exports.handler = (event, context, callback) => {
       {
         "$project": {
           "field_details": "$field_details",
-          "species_list": "$species_list",
-          "daily_test_time": "$daily_test_time"
+          "speciesList": "$speciesList",
+          "dailyTestTime": "$dailyTestTime"
         }
       },
       {"$unwind": "$field_details"},
       {
         "$project": {
           "_id":  false,
-          "species_list": "$species_list",
+          "speciesList": "$speciesList",
           "key": "$field_details.key",
           "widget_type": "$field_details.widget_type",
           "widget_select_options": "$field_details.widget_select_options",
           "widget_date_format": "$field_details.widget_date_format",
-          "daily_test_time": "$daily_test_time"
+          "dailyTestTime": "$dailyTestTime"
         }
       }
     ];
 
     // 讀取 project-metadata 與欄位設定相關的資訊, 包括物種清單、其他啟用欄位與定時測試照片的時間設定測試
-    post_to_api("/api/project-metadata/aggregate", post_aggregate, validate_and_create_json);
+    post_to_api("/api/project/aggregate", post_aggregate, validate_and_create_json);
   
-    let full_location = tag_data.project + "/" + tag_data.site + "/" + tag_data.sub_site + "/" + tag_data.location;
-    let full_location_md5 = md5(full_location);
+    let fullCameraLocation = tag_data.projectTitle + "/" + tag_data.site + "/" + tag_data.subSite + "/" + tag_data.cameraLocation;
+    let fullCameraLocationMd5 = md5(fullCameraLocation);
 
     // 讀完 project-metadata 後的 callback
     function validate_and_create_json (res) {
 
-      let species_list = [];
+      let speciesList = [];
       let validators = {};
-      let daily_test_time;
+      let dailyTestTime;
 
       console.log(res.results);
       if (res.results && res.results.length > 0) {
 
         // 物種清單與每日測試時間在每個 result 中重複，因此取第一個 (index 0) 即可
         // 物種清單
-        if (Array.isArray(res.results[0].species_list)) {
-          species_list = res.results[0].species_list;
+        if (Array.isArray(res.results[0].speciesList)) {
+          speciesList = res.results[0].speciesList;
         }
-        validators[field_map.species] = species_list;
+        validators[field_map.species] = speciesList;
 
         // 每日測試時間
-        if (Array.isArray(res.results[0].daily_test_time) && res.results[0].daily_test_time.length > 0) {
-          let daily_test_time_length = res.results[0].daily_test_time.length;
-          daily_test_time = res.results[0].daily_test_time[daily_test_time_length - 1].time;
+        if (Array.isArray(res.results[0].dailyTestTime) && res.results[0].dailyTestTime.length > 0) {
+          let dailyTestTime_length = res.results[0].dailyTestTime.length;
+          dailyTestTime = res.results[0].dailyTestTime[dailyTestTime_length - 1].time;
         }
 
-        console.log(['Daily Test Time', daily_test_time]);
+        console.log(['Daily Test Time', dailyTestTime]);
 
         // 依欄位 mapping 找到欄位值驗證器 (目前就是 array of values)
         res.results.forEach(function(f){
@@ -262,8 +264,8 @@ exports.handler = (event, context, callback) => {
             if (corrected_timestamp > max_timestamp) max_timestamp = corrected_timestamp;
             if (corrected_timestamp < min_timestamp) min_timestamp = corrected_timestamp;
 
-            if (daily_test_time) {
-              let dtt_re = new RegExp(daily_test_time + "$");
+            if (dailyTestTime) {
+              let dtt_re = new RegExp(dailyTestTime + "$");
               let dtt_matched = dtt_re.exec(corrected_date_time);
               if (dtt_matched) {
                 record[field_map.species] = '定時測試';
@@ -300,7 +302,7 @@ exports.handler = (event, context, callback) => {
 
             // 檔名後方強制加上 timestamp 以確保包含完整計畫與地點的檔案路徑是系統唯一
             baseFileName = baseFileNameParts.join(".") + "_" + timestamp;
-            let relocate_path = root_dir + "images/orig/" + full_location;
+            let relocate_path = root_dir + "images/orig/" + fullCameraLocation;
             let relative_url = relocate_path + '/' + baseFileName + "." + ext;
             let _id = md5(relative_url);
 
@@ -370,8 +372,8 @@ exports.handler = (event, context, callback) => {
 
             // for MMA access control
             mma[_id]._id = _id;
-            mma[_id].project = tag_data.project;
-            mma[_id].full_location_md5 = full_location_md5;
+            mma[_id].projectTitle = tag_data.projectTitle;
+            mma[_id].fullCameraLocationMd5 = fullCameraLocationMd5;
 
             // set value
             mma[_id].$set.date_time_corrected_timestamp = corrected_timestamp;
@@ -387,11 +389,11 @@ exports.handler = (event, context, callback) => {
               url: relative_url,
               url_md5: _id,
               date_time_original_timestamp: timestamp,
-              project: tag_data.project,
+              projectTitle: tag_data.projectTitle,
               site: tag_data.site,
-              sub_site: tag_data.sub_site,
-              location: tag_data.location,
-              full_location_md5: full_location_md5,
+              subSite: tag_data.subSite,
+              cameraLocation: tag_data.cameraLocation,
+              fullCameraLocationMd5: fullCameraLocationMd5,
               uploaded_file_name: uploaded_baseFileName,
               timezone: "+8"
             }
@@ -401,8 +403,8 @@ exports.handler = (event, context, callback) => {
 
             // for MMM access control
             mmm[_id]._id = _id;
-            mmm[_id].project = tag_data.project;
-            mmm[_id].full_location_md5 = full_location_md5;
+            mmm[_id].projectTitle = tag_data.projectTitle;
+            mmm[_id].fullCameraLocationMd5 = fullCameraLocationMd5;
 
             // set value
             mmm[_id].$set.date_time_corrected_timestamp = corrected_timestamp;
@@ -420,11 +422,11 @@ exports.handler = (event, context, callback) => {
               date_time_original_timestamp: timestamp,
               modify_date: "",
               device_metadata: {},
-              project: tag_data.project,
+              projectTitle: tag_data.projectTitle,
               site: tag_data.site,
-              sub_site: tag_data.sub_site,
-              location: tag_data.location,
-              full_location_md5: full_location_md5,
+              subSite: tag_data.subSite,
+              cameraLocation: tag_data.cameraLocation,
+              fullCameraLocationMd5: fullCameraLocationMd5,
               uploaded_file_name: uploaded_baseFileName,
               timezone: "+8"
             }
@@ -458,7 +460,7 @@ exports.handler = (event, context, callback) => {
           }
 
           let data_overlap = false;
-          post_to_api("/api/multimedia-annotations/exists", overlap_range, function(res) {
+          post_to_api("/api/media/annotation/exists", overlap_range, function(res) {
             console.log(JSON.stringify(overlap_range, null, 2));
 
             if (res.results !== null) {
@@ -467,9 +469,9 @@ exports.handler = (event, context, callback) => {
             }
 
             if (data_errors.length > 0) {
-              post_to_api("/api/upload-sessions/bulk-update", [{
+              post_to_api("/api/upload-session/bulk-update", [{
                 _id: upload_session_id,
-                project: tag_data.project,
+                projectTitle: tag_data.projectTitle,
                 $set: {
                   status: "ERROR",
                   messages: data_errors,
@@ -493,12 +495,12 @@ exports.handler = (event, context, callback) => {
               // console.log(JSON.stringify(mmm_upsert_querys, null, 2));
               
               let mma_op = {
-                endpoint: "/multimedia-annotations/bulk-update",
+                endpoint: "/media/annotation/bulk-update",
                 post: mma_upsert_querys
               }
 
               let mmm_op = {
-                endpoint: "/multimedia-metadata/bulk-update",
+                endpoint: "/media/bulk-update",
                 post: mmm_upsert_querys
               }
 

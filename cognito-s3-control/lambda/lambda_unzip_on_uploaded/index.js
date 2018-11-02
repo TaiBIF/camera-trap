@@ -50,7 +50,7 @@ exports.handler = (event, context, callback) => {
 
     let tags_string = encodeQueryData(tag_data);
 
-    if (!tag_data.sub_site) tag_data.sub_site = 'NULL';
+    if (!tag_data.subSite) tag_data.subSite = 'NULL';
 
     let parser = unzip.Parse({ decodeString: (buffer) => { return iconvLite.decode(buffer, 'utf8'); } });
 
@@ -75,9 +75,9 @@ exports.handler = (event, context, callback) => {
         // if (baseFileNameParts.length > 1)
         baseFileNameParts.pop();
         
-        let full_location = tag_data.project + "/" + tag_data.site + "/" + tag_data.sub_site + "/" + tag_data.location;
-        let relocate_path = root_dir + "images/orig/" + full_location;
-        let relocate_path_low_quality = root_dir + "images/_res_quality_/" + full_location;
+        let fullCameraLocation = tag_data.projectTitle + "/" + tag_data.site + "/" + tag_data.subSite + "/" + tag_data.cameraLocation;
+        let relocate_path = root_dir + "images/orig/" + fullCameraLocation;
+        let relocate_path_low_quality = root_dir + "images/_res_quality_/" + fullCameraLocation;
 
         if (fileName.match(/\.(mp4)$|\.(avi)$/i)) {
           let matched_name = fileName.match(/\.(mp4)$|\.(avi)$/i);
@@ -174,12 +174,12 @@ exports.handler = (event, context, callback) => {
                 let relative_url_lq = relocate_path_low_quality + '/' + baseFileName + ".webp";
                   
                 let _id = md5(relative_url);
-                let full_location_md5 = md5(full_location);
+                let fullCameraLocationMd5 = md5(fullCameraLocation);
 
                 let mma_upsert_query = {
                   _id: _id,
-                  project: tag_data.project,
-                  full_location_md5: full_location_md5,
+                  projectTitle: tag_data.projectTitle,
+                  fullCameraLocationMd5: fullCameraLocationMd5,
                   $set: { // 只能由多媒體檔案中擷取出的資訊，放在 $set。目的是補充先上傳 CSV 再上傳 多媒體檔時欠缺的 metadata
                     modified_by: tag_data.user_id,
                     type: "StillImage",
@@ -190,11 +190,11 @@ exports.handler = (event, context, callback) => {
                     url_md5: _id,
                     date_time_original_timestamp: timestamp, // 這個值可從 CSV 中的拍照時間還原。或在相機設定錯誤時覆蓋掉 metadata
                     date_time_corrected_timestamp: timestamp,
-                    project: tag_data.project,
+                    projectTitle: tag_data.projectTitle,
                     site: tag_data.site,
-                    sub_site: tag_data.sub_site,
-                    location: tag_data.location,
-                    full_location_md5: full_location_md5,
+                    subSite: tag_data.subSite,
+                    cameraLocation: tag_data.cameraLocation,
+                    fullCameraLocationMd5: fullCameraLocationMd5,
                     uploaded_file_name: uploaded_baseFileName,
                     timezone: "+8",
                     year: year,
@@ -216,8 +216,8 @@ exports.handler = (event, context, callback) => {
 
                 let mmm_upsert_query = {
                   _id: _id,
-                  project: tag_data.project,
-                  full_location_md5: full_location_md5,
+                  projectTitle: tag_data.projectTitle,
+                  fullCameraLocationMd5: fullCameraLocationMd5,
                   $set: {
                     modified_by: tag_data.user_id,
                     type: "StillImage",
@@ -233,11 +233,11 @@ exports.handler = (event, context, callback) => {
                     url_md5: _id,
                     date_time_original_timestamp: timestamp,
                     date_time_corrected_timestamp: timestamp,
-                    project: tag_data.project,
+                    projectTitle: tag_data.projectTitle,
                     site: tag_data.site,
-                    sub_site: tag_data.sub_site,
-                    location: tag_data.location,
-                    full_location_md5: full_location_md5,
+                    subSite: tag_data.subSite,
+                    cameraLocation: tag_data.cameraLocation,
+                    fullCameraLocationMd5: fullCameraLocationMd5,
                     uploaded_file_name: uploaded_baseFileName,
                     timezone: "+8",
                     year: year,
@@ -290,7 +290,7 @@ exports.handler = (event, context, callback) => {
               cnt_of_exif_extracting--;
               if (cnt_of_exif_extracting == 0 && unzip_close) {
                 let mma_op = {
-                  endpoint: "/multimedia-annotations/bulk-update",
+                  endpoint: "/media/annotation/bulk-update",
                   post: mma_upsert_querys
                 }
                 let mma_upsert_querys_string = JSON.stringify(mma_op, null, 2);
@@ -305,7 +305,7 @@ exports.handler = (event, context, callback) => {
                 // console.log(JSON.stringify(mma_upsert_querys, null, 2));
                 // -------------
                 let mmm_op = {
-                  endpoint:"/multimedia-metadata/bulk-update",
+                  endpoint:"/media/bulk-update",
                   post: mmm_upsert_querys
                 }
                 let mmm_upsert_querys_string = JSON.stringify(mmm_op, null, 2);
