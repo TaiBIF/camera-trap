@@ -15,12 +15,12 @@ let field_map = {
   species: 'species',
   projectTitle: 'project',
   site: 'site',
-  subSite: 'sub_site',
+  subSite: 'subSite',
   cameraLocation: 'location',
   filename: 'filename',
   corrected_date_time: 'corrected_date_time',
   sex: 'sex',
-  lifeStage: 'life_stage',
+  lifeStage: 'lifeStage',
   antler: 'antler'
 }
 
