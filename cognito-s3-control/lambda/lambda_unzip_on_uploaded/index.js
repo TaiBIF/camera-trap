@@ -55,10 +55,10 @@ exports.handler = (event, context, callback) => {
     let parser = unzip.Parse({ decodeString: (buffer) => { return iconvLite.decode(buffer, 'utf8'); } });
 
     let mma_upsert_querys = [];
-    let mma_relative_url_json = root_dir + "json/" + upload_session_id + "/" + file_key_name_part + ".mma.json";
+    let mma_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.user_id + "/" + file_key_name_part + ".mma.json";
 
     let mmm_upsert_querys = [];
-    let mmm_relative_url_json = root_dir + "json/" + upload_session_id + "/" + file_key_name_part + ".mmm.json";
+    let mmm_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.user_id + "/" + file_key_name_part + ".mmm.json";
 
     let unzip_close = false;
     let cnt_of_exif_extracting = 0;
@@ -181,7 +181,7 @@ exports.handler = (event, context, callback) => {
                   projectTitle: tag_data.projectTitle,
                   fullCameraLocationMd5: fullCameraLocationMd5,
                   $set: { // 只能由多媒體檔案中擷取出的資訊，放在 $set。目的是補充先上傳 CSV 再上傳 多媒體檔時欠缺的 metadata
-                    modified_by: tag_data.user_id,
+                    modifiedBy: tag_data.user_id,
                     type: "StillImage",
                     date_time_original: exifData.exif.DateTimeOriginal,
                   },
@@ -219,7 +219,7 @@ exports.handler = (event, context, callback) => {
                   projectTitle: tag_data.projectTitle,
                   fullCameraLocationMd5: fullCameraLocationMd5,
                   $set: {
-                    modified_by: tag_data.user_id,
+                    modifiedBy: tag_data.user_id,
                     type: "StillImage",
                     date_time_original: exifData.exif.DateTimeOriginal,
                     device_metadata: exifData.image,
