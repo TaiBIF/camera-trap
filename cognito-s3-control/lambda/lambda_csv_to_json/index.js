@@ -121,6 +121,7 @@ exports.handler = (event, context, callback) => {
 
       if (!tag_data.subSite) tag_data.subSite = 'NULL';
 
+      // TODO: 這個 aggregate 寫差了，日後有空可改
       let post_aggregate = [
         {"$match": {"_id": tag_data.projectTitle}},
         {"$unwind": "$dataFieldEnabled"},
@@ -261,7 +262,7 @@ exports.handler = (event, context, callback) => {
 
               let date_time_obj = new Date(record[field_map.date_time]);
               timestamp = date_time_obj.getTime() / 1000;
-              console.log([record[field_map.date_time], timestamp]);
+              //console.log([record[field_map.date_time], timestamp]);
               
               let corrected_date_time = record[field_map.corrected_date_time] ? record[field_map.corrected_date_time] : record[field_map.date_time];
               let corrected_date_time_obj = new Date(corrected_date_time);
@@ -372,7 +373,7 @@ exports.handler = (event, context, callback) => {
                 species_shortcut = record[field_map.species];
               }
 
-              console.log(['SPECIES SHORTCUT', species_shortcut]);
+              // console.log(['SPECIES SHORTCUT', species_shortcut]);
               // set mma tokens
               mma[_id].$set.tokens.push(
                 {
@@ -389,6 +390,7 @@ exports.handler = (event, context, callback) => {
 
               // set value
               mma[_id].$set.date_time_corrected_timestamp = corrected_timestamp;
+              mma[_id].$set.corrected_date_time = corrected_date_time;
               mma[_id].$set.modifiedBy = tag_data.user_id;
               mma[_id].$set.type = mm_type;
               mma[_id].$set.year = year;
@@ -420,6 +422,7 @@ exports.handler = (event, context, callback) => {
 
               // set value
               mmm[_id].$set.date_time_corrected_timestamp = corrected_timestamp;
+              mmm[_id].$set.corrected_date_time = corrected_date_time;
               mmm[_id].$set.modifiedBy = tag_data.user_id;
               mmm[_id].$set.type = mm_type;
               mmm[_id].$set.year = year;
@@ -485,10 +488,21 @@ exports.handler = (event, context, callback) => {
                   _id: upload_session_id,
                   projectTitle: tag_data.projectTitle,
                   $set: {
+                    upload_session_id: upload_session_id,
+                    projectTitle: tag_data.projectTitle,
+                    fullCameraLocationMd5: fullCameraLocationMd5,
                     status: "ERROR",
-                    messages: {$push: {key: file_key, errors: data_errors, modified: (Date.now() / 1000)}},
-                    problematic_ids: Array.from(problematic_ids)
-                  }
+                    by: tag_data.user_id
+                  },
+                  $push: {
+                    messages: {
+                      problematic_ids: Array.from(problematic_ids), 
+                      key: file_key, 
+                      errors: data_errors, 
+                      modified: (Date.now() / 1000)
+                    }
+                  },
+                  $upsert: true
                 }], function(res) {
                   console.log(["ERROR REPORTING", res]);
                 });

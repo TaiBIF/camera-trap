@@ -157,7 +157,7 @@ exports.handler = (event, context, callback) => {
                 delete exifData.exif.MakerNote;
 
                 let dateTimeComponents = exifData.exif.DateTimeOriginal.match(/\d+/g);
-                let dateTimeString = dateTimeComponents[0] + "-" + dateTimeComponents[1] + "-" + dateTimeComponents[2] + " " + dateTimeComponents[3] + ":" + dateTimeComponents[4] + ":" + dateTimeComponents[5];
+                let dateTimeString = dateTimeComponents[0] + "/" + dateTimeComponents[1] + "/" + dateTimeComponents[2] + " " + dateTimeComponents[3] + ":" + dateTimeComponents[4] + ":" + dateTimeComponents[5];
 
                 let date_time_obj = new Date(dateTimeString);
                 let timestamp = date_time_obj.getTime() / 1000;
@@ -184,12 +184,13 @@ exports.handler = (event, context, callback) => {
                     modifiedBy: tag_data.user_id,
                     type: "StillImage",
                     date_time_original: exifData.exif.DateTimeOriginal,
+                    date_time_original_timestamp: timestamp, // 這個值可從 CSV 中的拍照時間還原。或在相機設定錯誤時覆蓋掉 metadata
                   },
                   $setOnInsert: {
                     url: relative_url,
                     url_md5: _id,
-                    date_time_original_timestamp: timestamp, // 這個值可從 CSV 中的拍照時間還原。或在相機設定錯誤時覆蓋掉 metadata
                     date_time_corrected_timestamp: timestamp,
+                    corrected_date_time: dateTimeString,
                     projectTitle: tag_data.projectTitle,
                     site: tag_data.site,
                     subSite: tag_data.subSite,
@@ -221,6 +222,7 @@ exports.handler = (event, context, callback) => {
                   $set: {
                     modifiedBy: tag_data.user_id,
                     type: "StillImage",
+                    date_time_original_timestamp: timestamp,
                     date_time_original: exifData.exif.DateTimeOriginal,
                     device_metadata: exifData.image,
                     make: exifData.image.Make,
@@ -231,8 +233,8 @@ exports.handler = (event, context, callback) => {
                   $setOnInsert: {
                     url: relative_url,
                     url_md5: _id,
-                    date_time_original_timestamp: timestamp,
                     date_time_corrected_timestamp: timestamp,
+                    corrected_date_time: dateTimeString,
                     projectTitle: tag_data.projectTitle,
                     site: tag_data.site,
                     subSite: tag_data.subSite,
