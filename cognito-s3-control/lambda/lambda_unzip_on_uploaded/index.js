@@ -176,6 +176,24 @@ exports.handler = (event, context, callback) => {
                 let _id = md5(relative_url);
                 let fullCameraLocationMd5 = md5(fullCameraLocation);
 
+                // original file upload
+                if (file_size)
+                s3.upload({Bucket: bucket, Key: relative_url, Body: file_buf, ACL: 'public-read', ContentType: "image/jpeg", Tagging: tags_string}, {},
+                  function(err, data) {
+                    if (err) 
+                      console.log('ERROR!');
+                    else
+                      console.log('OK');
+                  });
+                //*
+
+                // create compressed image
+                let quality = 60;
+                let res_idx = 4;
+                let width = 128 * res_idx;
+                let height = 3 * width / 4;
+                let webpRelativePath = relative_url_lq.replace("_res_quality_", width + "q" + quality);
+
                 let mma_upsert_query = {
                   _id: _id,
                   projectTitle: tag_data.projectTitle,
@@ -185,6 +203,7 @@ exports.handler = (event, context, callback) => {
                     type: "StillImage",
                     date_time_original: exifData.exif.DateTimeOriginal,
                     date_time_original_timestamp: timestamp, // 這個值可從 CSV 中的拍照時間還原。或在相機設定錯誤時覆蓋掉 metadata
+                    low_quality_url: webpRelativePath
                   },
                   $setOnInsert: {
                     url: relative_url,
@@ -228,7 +247,8 @@ exports.handler = (event, context, callback) => {
                     make: exifData.image.Make,
                     model: exifData.image.Model,
                     modify_date: exifData.image.ModifyDate,
-                    exif: exifData.exif
+                    exif: exifData.exif,
+                    low_quality_url: webpRelativePath
                   },
                   $setOnInsert: {
                     url: relative_url,
@@ -251,24 +271,6 @@ exports.handler = (event, context, callback) => {
                 };
                 mmm_upsert_querys.push(mmm_upsert_query);
 
-
-                // original file upload
-                if (file_size)
-                s3.upload({Bucket: bucket, Key: relative_url, Body: file_buf, ContentType: "image/jpeg", Tagging: tags_string}, {},
-                  function(err, data) {
-                    if (err) 
-                      console.log('ERROR!');
-                    else
-                      console.log('OK');
-                  });
-                //*
-
-                // create compressed image
-                let quality = 60;
-                let res_idx = 4;
-                let width = 128 * res_idx;
-                let height = 3 * width / 4;
-  
                 sharp(file_buf)
                   .withMetadata()
                   .resize(width, height)
@@ -280,7 +282,7 @@ exports.handler = (event, context, callback) => {
                     // 再用EXIF做為重新命名的依據
                     console.log(relocate_path_low_quality);
                     if (file_size)
-                    s3.upload({Bucket: bucket, Key: relative_url_lq.replace("_res_quality_", width + "q" + quality), Body: resized_data, ContentType: "image/webp", Tagging: tags_string}, {},
+                    s3.upload({Bucket: bucket, Key: webpRelativePath, Body: resized_data, ACL: 'public-read', ContentType: "image/webp", Tagging: tags_string}, {},
                       function(err, data) {
                         if (err) 
                           console.log('ERROR!');

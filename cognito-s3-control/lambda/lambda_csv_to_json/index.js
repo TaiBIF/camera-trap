@@ -24,6 +24,8 @@ let field_map = {
   antler: 'antler'
 }
 
+let csv_field_label_map = {};
+
 // fields that are parts of metadata instead of annotation data
 let not_data_fields = [
   field_map.projectTitle, 
@@ -146,6 +148,7 @@ exports.handler = (event, context, callback) => {
             "_id":  false,
             "speciesList": "$speciesList",
             "key": "$field_details.key",
+            "label": "$field_details.label",
             "widget_type": "$field_details.widget_type",
             "widget_select_options": "$field_details.widget_select_options",
             "widget_date_format": "$field_details.widget_date_format",
@@ -193,6 +196,9 @@ exports.handler = (event, context, callback) => {
                   validators[field_map[f.key]] = f.widget_select_options;
                 }
               }
+            }
+            if (field_map[f.key]) {
+              csv_field_label_map[field_map[f.key]] = f.label;
             }
           });
 
@@ -355,6 +361,7 @@ exports.handler = (event, context, callback) => {
 
                 data.push({
                   key: k,
+                  label: csv_field_label_map[k] ? csv_field_label_map[k] : k,
                   value: record[k],
                   data_error_flag: data_error_flag,
                   last_validated_timestamp: (Date.now() / 1000),
