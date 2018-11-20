@@ -25,6 +25,7 @@ let field_map = {
 }
 
 let csv_field_label_map = {};
+csv_field_label_map[field_map.species] = "物種";
 
 // fields that are parts of metadata instead of annotation data
 let not_data_fields = [
@@ -235,6 +236,9 @@ exports.handler = (event, context, callback) => {
             let max_timestamp = -Infinity;
             let min_timestamp = Infinity;
 
+            let latestDataDate = '';
+            let earliestDataDate = '';
+
             let unmatched_metadata_exists = false;
             let unmatched_fields = [];
             let problematic_ids = new Set();
@@ -280,8 +284,14 @@ exports.handler = (event, context, callback) => {
               let day = corrected_date_time_obj.getDate();
               let hour = corrected_date_time_obj.getHours();
 
-              if (corrected_timestamp > max_timestamp) max_timestamp = corrected_timestamp;
-              if (corrected_timestamp < min_timestamp) min_timestamp = corrected_timestamp;
+              if (corrected_timestamp > max_timestamp) {
+                max_timestamp = corrected_timestamp;
+                latestDataDate = corrected_date_time;
+              }
+              if (corrected_timestamp < min_timestamp) {
+                min_timestamp = corrected_timestamp;
+                earliestDataDate = corrected_date_time;
+              }
 
               if (dailyTestTime) {
                 let dtt_re = new RegExp(dailyTestTime + "$");
@@ -487,7 +497,7 @@ exports.handler = (event, context, callback) => {
 
               if (res.results !== null) {
                 data_overlap = true;
-                data_errors.push ("上傳資料與過往資料重疊，暫不匯入.");
+                data_errors.push ("上傳資料可能與過往資料重疊。");
               }
 
               if (data_errors.length > 0) {
@@ -497,6 +507,11 @@ exports.handler = (event, context, callback) => {
                   $set: {
                     upload_session_id: upload_session_id,
                     projectTitle: tag_data.projectTitle,
+                    site: tag_data.site,
+                    subSite: tag_data.subSite,
+                    cameraLocation: tag_data.cameraLocation,
+                    earliestDataDate: earliestDataDate,
+                    latestDataDate: latestDataDate,
                     fullCameraLocationMd5: fullCameraLocationMd5,
                     status: "ERROR",
                     by: tag_data.user_id
@@ -512,6 +527,27 @@ exports.handler = (event, context, callback) => {
                   $upsert: true
                 }], function(res) {
                   console.log(["ERROR REPORTING", res]);
+                });
+              }
+              else {
+                post_to_api("/api/upload-session/bulk-update", [{
+                  _id: upload_session_id,
+                  projectTitle: tag_data.projectTitle,
+                  $set: {
+                    upload_session_id: upload_session_id,
+                    projectTitle: tag_data.projectTitle,
+                    site: tag_data.site,
+                    subSite: tag_data.subSite,
+                    cameraLocation: tag_data.cameraLocation,
+                    earliestDataDate: earliestDataDate,
+                    latestDataDate: latestDataDate,
+                    fullCameraLocationMd5: fullCameraLocationMd5,
+                    status: "SUCCESS",
+                    by: tag_data.user_id
+                  },
+                  $upsert: true
+                }], function(res) {
+                  console.log(["SUCCESS", res]);
                 });
               }
 
