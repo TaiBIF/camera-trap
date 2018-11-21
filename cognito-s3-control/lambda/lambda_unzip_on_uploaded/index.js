@@ -203,7 +203,8 @@ exports.handler = (event, context, callback) => {
                     type: "StillImage",
                     date_time_original: exifData.exif.DateTimeOriginal,
                     date_time_original_timestamp: timestamp, // 這個值可從 CSV 中的拍照時間還原。或在相機設定錯誤時覆蓋掉 metadata
-                    low_quality_url: webpRelativePath
+                    low_quality_url: webpRelativePath,
+                    imageUrlPrefix: 'https://s3-ap-northeast-1.amazonaws.com/camera-trap/'
                   },
                   $setOnInsert: {
                     url: relative_url,
@@ -248,7 +249,8 @@ exports.handler = (event, context, callback) => {
                     model: exifData.image.Model,
                     modify_date: exifData.image.ModifyDate,
                     exif: exifData.exif,
-                    low_quality_url: webpRelativePath
+                    low_quality_url: webpRelativePath,
+                    imageUrlPrefix: 'https://s3-ap-northeast-1.amazonaws.com/camera-trap/'
                   },
                   $setOnInsert: {
                     url: relative_url,

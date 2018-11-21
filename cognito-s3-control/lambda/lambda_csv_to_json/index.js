@@ -55,7 +55,7 @@ let user_password;
 
 function post_to_api (endpoint_path, json, post_callback) {
   let post_options = {
-    host: "camera-trap.tw",
+    host: "api.camera-trap.tw",
     port: '443',
     path: endpoint_path,
     method: 'POST',
@@ -414,6 +414,7 @@ exports.handler = (event, context, callback) => {
               mma[_id].$set.month = month;
               mma[_id].$set.day = day;
               mma[_id].$set.hour = hour;
+              mma[_id].$set.imageUrlPrefix = 'https://s3-ap-northeast-1.amazonaws.com/camera-trap/';
 
               // set on insert (upsert)
               mma[_id].$setOnInsert = {
@@ -446,6 +447,7 @@ exports.handler = (event, context, callback) => {
               mmm[_id].$set.month = month;
               mmm[_id].$set.day = day;
               mmm[_id].$set.hour = hour;
+              mmm[_id].$set.imageUrlPrefix = 'https://s3-ap-northeast-1.amazonaws.com/camera-trap/';
 
               // set on insert (upsert)
               mmm[_id].$setOnInsert = {
