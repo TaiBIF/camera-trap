@@ -55,7 +55,7 @@ let user_password;
 
 function post_to_api (endpoint_path, json, post_callback) {
   let post_options = {
-    host: "api.camera-trap.tw",
+    host: "api-dev.camera-trap.tw",
     port: '443',
     path: endpoint_path,
     method: 'POST',
@@ -159,7 +159,7 @@ exports.handler = (event, context, callback) => {
       ];
 
       // 讀取 project-metadata 與欄位設定相關的資訊, 包括物種清單、其他啟用欄位與定時測試照片的時間設定測試
-      post_to_api("/api/project/aggregate", post_aggregate, validate_and_create_json);
+      post_to_api("/project/aggregate", post_aggregate, validate_and_create_json);
     
       let fullCameraLocation = tag_data.projectTitle + "/" + tag_data.site + "/" + tag_data.subSite + "/" + tag_data.cameraLocation;
       let fullCameraLocationMd5 = md5(fullCameraLocation);
@@ -270,12 +270,12 @@ exports.handler = (event, context, callback) => {
               let baseFileNameParts;
               let timestamp, corrected_timestamp;
 
-              let date_time_obj = new Date(record[field_map.date_time]);
+              let date_time_obj = new Date(record[field_map.date_time] + '+8');
               timestamp = date_time_obj.getTime() / 1000;
               //console.log([record[field_map.date_time], timestamp]);
               
               let corrected_date_time = record[field_map.corrected_date_time] ? record[field_map.corrected_date_time] : record[field_map.date_time];
-              let corrected_date_time_obj = new Date(corrected_date_time);
+              let corrected_date_time_obj = new Date(corrected_date_time + '+8');
               corrected_timestamp = corrected_date_time_obj.getTime() / 1000;
 
 
@@ -494,7 +494,7 @@ exports.handler = (event, context, callback) => {
             }
 
             let data_overlap = false;
-            post_to_api("/api/media/annotation/exists", overlap_range, function(res) {
+            post_to_api("/media/annotation/exists", overlap_range, function(res) {
               console.log(JSON.stringify(overlap_range, null, 2));
 
               if (res.results !== null) {
@@ -503,7 +503,7 @@ exports.handler = (event, context, callback) => {
               }
 
               if (data_errors.length > 0) {
-                post_to_api("/api/upload-session/bulk-update", [{
+                post_to_api("/upload-session/bulk-update", [{
                   _id: upload_session_id,
                   projectTitle: tag_data.projectTitle,
                   $set: {
@@ -532,7 +532,7 @@ exports.handler = (event, context, callback) => {
                 });
               }
               else {
-                post_to_api("/api/upload-session/bulk-update", [{
+                post_to_api("/upload-session/bulk-update", [{
                   _id: upload_session_id,
                   projectTitle: tag_data.projectTitle,
                   $set: {

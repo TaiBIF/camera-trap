@@ -159,7 +159,7 @@ exports.handler = (event, context, callback) => {
                 let dateTimeComponents = exifData.exif.DateTimeOriginal.match(/\d+/g);
                 let dateTimeString = dateTimeComponents[0] + "/" + dateTimeComponents[1] + "/" + dateTimeComponents[2] + " " + dateTimeComponents[3] + ":" + dateTimeComponents[4] + ":" + dateTimeComponents[5];
 
-                let date_time_obj = new Date(dateTimeString);
+                let date_time_obj = new Date(dateTimeString + '+8');
                 let timestamp = date_time_obj.getTime() / 1000;
 
                 let year = date_time_obj.getFullYear();

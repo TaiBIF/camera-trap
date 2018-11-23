@@ -43,9 +43,9 @@ exports.handler = (event, context, callback) => {
 
           // data lock api
           let lock_post_options = {
-            host: "api.camera-trap.tw",
+            host: "api-dev.camera-trap.tw",
             port: '443',
-            path: "/api/camera-location/data-lock/bulk-replace",
+            path: "/camera-location/data-lock/bulk-replace",
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -96,9 +96,9 @@ exports.handler = (event, context, callback) => {
 
             // An object of options to indicate where to post to
             let post_options = {
-              host: "api.camera-trap.tw",
+              host: "api-dev.camera-trap.tw",
               port: '443',
-              path: "/api" + json.endpoint,
+              path: json.endpoint,
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
