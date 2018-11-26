@@ -256,6 +256,8 @@ exports.handler = (event, context, callback) => {
             let force_import_validated = true;
             // 每筆 record 對應到一個 token，但單一多媒體檔也可能同時有多個 tokens，因此要用 unique id 為 group
             records.forEach(function (record, record_idx) {
+
+              let multimedia_error_flag = false;
               
               if (!((!unmatched_metadata_exists || force_import_validated) && !missing_required)) {
                 return;
@@ -366,6 +368,7 @@ exports.handler = (event, context, callback) => {
                   if (validators[k] && validators[k].indexOf(record[k]) < 0) {
                     data_error_flag = true;
                     token_error_flag = true;
+                    multimedia_error_flag = true;
                   }
                 }
 
@@ -415,6 +418,7 @@ exports.handler = (event, context, callback) => {
               mma[_id].$set.day = day;
               mma[_id].$set.hour = hour;
               mma[_id].$set.imageUrlPrefix = 'https://s3-ap-northeast-1.amazonaws.com/camera-trap/';
+              mma[_id].$set.multimedia_error_flag = mma[_id].$set.multimedia_error_flag || multimedia_error_flag;
 
               // set on insert (upsert)
               mma[_id].$setOnInsert = {
