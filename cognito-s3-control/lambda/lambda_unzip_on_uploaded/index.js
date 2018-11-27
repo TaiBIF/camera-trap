@@ -14,7 +14,7 @@ const sharp = require('sharp');
 let species_field = "species";
 
 exports.handler = (event, context, callback) => {
-  
+
   console.log(event.Records[0].s3.object);
   console.log(event.Records[0].s3);
 
@@ -55,10 +55,10 @@ exports.handler = (event, context, callback) => {
     let parser = unzip.Parse({ decodeString: (buffer) => { return iconvLite.decode(buffer, 'utf8'); } });
 
     let mma_upsert_querys = [];
-    let mma_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.user_id + "/" + file_key_name_part + ".mma.json";
+    let mma_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.userId + "/" + file_key_name_part + ".mma.json";
 
     let mmm_upsert_querys = [];
-    let mmm_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.user_id + "/" + file_key_name_part + ".mmm.json";
+    let mmm_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.userId + "/" + file_key_name_part + ".mmm.json";
 
     let unzip_close = false;
     let cnt_of_exif_extracting = 0;
@@ -74,7 +74,7 @@ exports.handler = (event, context, callback) => {
         let baseFileNameParts = baseFileName.split(".");
         // if (baseFileNameParts.length > 1)
         baseFileNameParts.pop();
-        
+
         let fullCameraLocation = tag_data.projectTitle + "/" + tag_data.site + "/" + tag_data.subSite + "/" + tag_data.cameraLocation;
         let relocate_path = root_dir + "images/orig/" + fullCameraLocation;
         let relocate_path_low_quality = root_dir + "images/_res_quality_/" + fullCameraLocation;
@@ -90,7 +90,7 @@ exports.handler = (event, context, callback) => {
             initialSize: (1000 * 1024),   // start at 1000 kilobytes.
             incrementAmount: (1000 * 1024) // grow by 1000 kilobytes each time buffer overflows.
           });
-  
+
           entry.pipe(fileWritableStreamBuffer).on('finish', function() {
 
             console.log("get head of " + fileName + ":");
@@ -100,7 +100,7 @@ exports.handler = (event, context, callback) => {
             let file_buf = fileWritableStreamBuffer.getContents();
             s3.upload({Bucket: bucket, Key: url_video, Body: file_buf, ContentType: "video/" + ext, Tagging: tags_string}, {},
             function(err, data) {
-              if (err) 
+              if (err)
                 console.log('ERROR!');
               else
                 console.log('OK');
@@ -113,7 +113,7 @@ exports.handler = (event, context, callback) => {
             initialSize: (100 * 1024),   // start at 100 kilobytes.
             incrementAmount: (100 * 1024) // grow by 100 kilobytes each time buffer overflows.
           });
-  
+
           entry.pipe(fileWritableStreamBuffer).on('finish', function() {
 
             console.log("get head of " + fileName + ":");
@@ -123,7 +123,7 @@ exports.handler = (event, context, callback) => {
             let file_buf = fileWritableStreamBuffer.getContents();
             s3.upload({Bucket: bucket, Key: url_csv, Body: file_buf, ContentType: "text/csv", Tagging: tags_string}, {},
             function(err, data) {
-              if (err) 
+              if (err)
                 console.log('ERROR!');
               else
                 console.log('OK');
@@ -137,7 +137,7 @@ exports.handler = (event, context, callback) => {
               initialSize: (100 * 1024),   // start at 100 kilobytes.
               incrementAmount: (100 * 1024) // grow by 100 kilobytes each time buffer overflows.
           });
-    
+
           cnt_of_exif_extracting++;
           entry.pipe(fileWritableStreamBuffer).on('finish', function() {
 
@@ -172,7 +172,7 @@ exports.handler = (event, context, callback) => {
                 baseFileName = baseFileNameParts.join(".") + "_" + timestamp;
                 let relative_url = relocate_path + '/' + baseFileName + ".jpg";
                 let relative_url_lq = relocate_path_low_quality + '/' + baseFileName + ".webp";
-                  
+
                 let _id = md5(relative_url);
                 let fullCameraLocationMd5 = md5(fullCameraLocation);
 
@@ -180,7 +180,7 @@ exports.handler = (event, context, callback) => {
                 if (file_size)
                 s3.upload({Bucket: bucket, Key: relative_url, Body: file_buf, ACL: 'public-read', ContentType: "image/jpeg", Tagging: tags_string}, {},
                   function(err, data) {
-                    if (err) 
+                    if (err)
                       console.log('ERROR!');
                     else
                       console.log('OK');
@@ -199,7 +199,7 @@ exports.handler = (event, context, callback) => {
                   projectTitle: tag_data.projectTitle,
                   fullCameraLocationMd5: fullCameraLocationMd5,
                   $set: { // 只能由多媒體檔案中擷取出的資訊，放在 $set。目的是補充先上傳 CSV 再上傳 多媒體檔時欠缺的 metadata
-                    modifiedBy: tag_data.user_id,
+                    modifiedBy: tag_data.userId,
                     type: "StillImage",
                     date_time_original: exifData.exif.DateTimeOriginal,
                     date_time_original_timestamp: timestamp, // 這個值可從 CSV 中的拍照時間還原。或在相機設定錯誤時覆蓋掉 metadata
@@ -240,7 +240,7 @@ exports.handler = (event, context, callback) => {
                   projectTitle: tag_data.projectTitle,
                   fullCameraLocationMd5: fullCameraLocationMd5,
                   $set: {
-                    modifiedBy: tag_data.user_id,
+                    modifiedBy: tag_data.userId,
                     type: "StillImage",
                     date_time_original_timestamp: timestamp,
                     date_time_original: exifData.exif.DateTimeOriginal,
@@ -286,7 +286,7 @@ exports.handler = (event, context, callback) => {
                     if (file_size)
                     s3.upload({Bucket: bucket, Key: webpRelativePath, Body: resized_data, ACL: 'public-read', ContentType: "image/webp", Tagging: tags_string}, {},
                       function(err, data) {
-                        if (err) 
+                        if (err)
                           console.log('ERROR!');
                         else
                           console.log('OK');
@@ -303,7 +303,7 @@ exports.handler = (event, context, callback) => {
                 console.log(mma_relative_url_json);
                 s3.upload({Bucket: bucket, Key: mma_relative_url_json, Body: mma_upsert_querys_string, ContentType: "application/json", Tagging: tags_string}, {},
                   function(err, data) {
-                    if (err) 
+                    if (err)
                       console.log('ERROR!');
                     else
                       console.log('OK');
@@ -318,7 +318,7 @@ exports.handler = (event, context, callback) => {
                 console.log(mmm_relative_url_json);
                 s3.upload({Bucket: bucket, Key: mmm_relative_url_json, Body: mmm_upsert_querys_string, ContentType: "application/json", Tagging: tags_string}, {},
                   function(err, data) {
-                    if (err) 
+                    if (err)
                       console.log('ERROR!');
                     else
                       console.log('OK');
@@ -349,7 +349,7 @@ exports.handler = (event, context, callback) => {
         // unzip-stream 官方推薦 close event
         unzip_close = true;
         console.log("***************** UNZIP CLOSE *****************");
-      }); 
+      });
   });
 
 }

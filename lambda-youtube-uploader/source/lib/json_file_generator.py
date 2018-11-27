@@ -1,5 +1,5 @@
 # =======================================
-# This class is for processing json file 
+# This class is for processing json file
 # =======================================
 
 import datetime
@@ -26,10 +26,10 @@ class JsonFileGenerator:
         self.video_mod_datetime = kwargs.setdefault('video_mod_datetime', datetime.datetime.now())
         self.video_width = kwargs.setdefault('video_width', '')
         self.video_height = kwargs.setdefault('video_height', '')
-        self.user_id = kwargs.setdefault('user_id', 'NULL')
+        self.userId = kwargs.setdefault('userId', 'NULL')
         self.upload_session_id = kwargs.setdefault('upload_session_id', '')
-        self.device_metadata = kwargs.setdefault('device_metadata', {}) # 與相機相關但非 EXIF 的 Metadata 
-        self.exif = kwargs.setdefault('exif', {}) # EXIF 整組 json 
+        self.device_metadata = kwargs.setdefault('device_metadata', {}) # 與相機相關但非 EXIF 的 Metadata
+        self.exif = kwargs.setdefault('exif', {}) # EXIF 整組 json
         self.make = kwargs.setdefault('make', '') # 相機製造商
         self.model = kwargs.setdefault('model', '') # 相機型號
         self.full_location = generate_location_path(self.project, self.site, self.sub_site, self.location)
@@ -57,7 +57,7 @@ class JsonFileGenerator:
         create json file and upload to s3 bucket
 
         Args:
-            file_type: 
+            file_type:
                 type of json, input mma or mmm
 
         Return:
@@ -72,7 +72,7 @@ class JsonFileGenerator:
             endpoint = self.enpoint_mmm
         else:
             return None
-        
+
         print(body)
 
         data = json.dumps({
@@ -102,7 +102,7 @@ class JsonFileGenerator:
             'project': self.project,
             'full_location_md5': to_md5_hexdigest(self.full_location),
             '$set': {
-                'modified_by': self.user_id,
+                'modified_by': self.userId,
                 'type': 'MovingImage',
                 'date_time_original': self.video_org_datetime.strftime("%Y-%m-%d %H:%M:%S"),  # 格式以 metadata 中擷取出來的為準
                 'length_of_video': self.video_length,  # 暫時以 metadata 中擷取出來的為準
@@ -110,7 +110,7 @@ class JsonFileGenerator:
             },
             '$setOnInsert': {
                 'url': self.youtube_url,
-                'url_md5': to_md5_hexdigest(self.youtube_url), 
+                'url_md5': to_md5_hexdigest(self.youtube_url),
                 'date_time_original_timestamp': int(self.video_org_datetime.timestamp()), # 由 date_time_original 轉換而來
                 'date_time_corrected_timestamp': int(self.video_org_datetime.timestamp()), # 這邊此值等於 date_time_original_timestamp
                 'project': self.project,
@@ -154,11 +154,11 @@ class JsonFileGenerator:
             'project': self.project,
             'full_location_md5': to_md5_hexdigest(self.full_location),
             '$set': {
-                'modified_by': self.user_id,
+                'modified_by': self.userId,
                 'type': 'MovingImage',
                 'date_time_original': self.video_org_datetime.strftime("%Y-%m-%d %H:%M:%S"), # 格式以metadata 中擷取出來的為準
                 'length_of_video': self.video_length, # 暫時以 metadata 中擷取出來的為準
-                'youtube_playlist_id': self.youtube_playlist_id, 
+                'youtube_playlist_id': self.youtube_playlist_id,
                 'device_metadata': self.device_metadata, # 與相機相關但非 EXIF 的 Metadata 整組直接以 json 先塞在這
                 'exif': self.exif, # EXIF 整組先以 json 塞在這
                 'make': self.make, # 相機製造商(如果有此項資訊的話)

@@ -29,12 +29,12 @@ csv_field_label_map[field_map.species] = "物種";
 
 // fields that are parts of metadata instead of annotation data
 let not_data_fields = [
-  field_map.projectTitle, 
-  field_map.site, 
-  field_map.subSite, 
-  field_map.cameraLocation, 
-  field_map.date_time, 
-  field_map.corrected_date_time, 
+  field_map.projectTitle,
+  field_map.site,
+  field_map.subSite,
+  field_map.cameraLocation,
+  field_map.date_time,
+  field_map.corrected_date_time,
   field_map.filename
 ];
 
@@ -160,7 +160,7 @@ exports.handler = (event, context, callback) => {
 
       // 讀取 project-metadata 與欄位設定相關的資訊, 包括物種清單、其他啟用欄位與定時測試照片的時間設定測試
       post_to_api("/project/aggregate", post_aggregate, validate_and_create_json);
-    
+
       let fullCameraLocation = tag_data.projectTitle + "/" + tag_data.site + "/" + tag_data.subSite + "/" + tag_data.cameraLocation;
       let fullCameraLocationMd5 = md5(fullCameraLocation);
 
@@ -207,10 +207,10 @@ exports.handler = (event, context, callback) => {
         }
 
         let mma_upsert_querys;
-        let mma_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.user_id + "/" + file_key_name_part + ".mma.json";
+        let mma_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.userId + "/" + file_key_name_part + ".mma.json";
 
         let mmm_upsert_querys = [];
-        let mmm_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.user_id + "/" + file_key_name_part + ".mmm.json";
+        let mmm_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.userId + "/" + file_key_name_part + ".mmm.json";
 
         let mma = {};
         let mmm = {};
@@ -231,7 +231,7 @@ exports.handler = (event, context, callback) => {
                 skip_empty_lines: true
               }
             );
-            
+
             // console.log(records);
             let max_timestamp = -Infinity;
             let min_timestamp = Infinity;
@@ -258,7 +258,7 @@ exports.handler = (event, context, callback) => {
             records.forEach(function (record, record_idx) {
 
               let multimedia_error_flag = false;
-              
+
               if (!((!unmatched_metadata_exists || force_import_validated) && !missing_required)) {
                 return;
               }
@@ -275,7 +275,7 @@ exports.handler = (event, context, callback) => {
               let date_time_obj = new Date(record[field_map.date_time] + '+8');
               timestamp = date_time_obj.getTime() / 1000;
               //console.log([record[field_map.date_time], timestamp]);
-              
+
               let corrected_date_time = record[field_map.corrected_date_time] ? record[field_map.corrected_date_time] : record[field_map.date_time];
               let corrected_date_time_obj = new Date(corrected_date_time + '+8');
               corrected_timestamp = corrected_date_time_obj.getTime() / 1000;
@@ -312,7 +312,7 @@ exports.handler = (event, context, callback) => {
               // 副檔名
               let ext = baseFileNameParts.pop();
               // console.log(['ext', ext]);
-              
+
               // 目前只接受 jpg, mp4 與 avi
               let mm_type = "Invalid";
               if (ext.match(/jpg$|jpeg$/i)) {
@@ -349,7 +349,7 @@ exports.handler = (event, context, callback) => {
                   // 如果上傳時的 tags 與 資料內容不符，看如何處理...
                   if (
                     record[k] &&
-                    tag_data[inverse_field_map[k]] && 
+                    tag_data[inverse_field_map[k]] &&
                     (tag_data[inverse_field_map[k]] != record[k])) {
                     unmatched_metadata = true;
                     unmatched_metadata_exists = true;
@@ -411,7 +411,7 @@ exports.handler = (event, context, callback) => {
               // set value
               mma[_id].$set.date_time_corrected_timestamp = corrected_timestamp;
               mma[_id].$set.corrected_date_time = corrected_date_time;
-              mma[_id].$set.modifiedBy = tag_data.user_id;
+              mma[_id].$set.modifiedBy = tag_data.userId;
               mma[_id].$set.type = mm_type;
               mma[_id].$set.year = year;
               mma[_id].$set.month = month;
@@ -445,7 +445,7 @@ exports.handler = (event, context, callback) => {
               // set value
               mmm[_id].$set.date_time_corrected_timestamp = corrected_timestamp;
               mmm[_id].$set.corrected_date_time = corrected_date_time;
-              mmm[_id].$set.modifiedBy = tag_data.user_id;
+              mmm[_id].$set.modifiedBy = tag_data.userId;
               mmm[_id].$set.type = mm_type;
               mmm[_id].$set.year = year;
               mmm[_id].$set.month = month;
@@ -520,13 +520,13 @@ exports.handler = (event, context, callback) => {
                     latestDataDate: latestDataDate,
                     fullCameraLocationMd5: fullCameraLocationMd5,
                     status: "ERROR",
-                    by: tag_data.user_id
+                    by: tag_data.userId
                   },
                   $push: {
                     messages: {
-                      problematic_ids: Array.from(problematic_ids), 
-                      key: file_key, 
-                      errors: data_errors, 
+                      problematic_ids: Array.from(problematic_ids),
+                      key: file_key,
+                      errors: data_errors,
                       modified: (Date.now() / 1000)
                     }
                   },
@@ -549,7 +549,7 @@ exports.handler = (event, context, callback) => {
                     latestDataDate: latestDataDate,
                     fullCameraLocationMd5: fullCameraLocationMd5,
                     status: "SUCCESS",
-                    by: tag_data.user_id
+                    by: tag_data.userId
                   },
                   $upsert: true
                 }], function(res) {
@@ -568,7 +568,7 @@ exports.handler = (event, context, callback) => {
                 });
 
                 // console.log(JSON.stringify(mmm_upsert_querys, null, 2));
-                
+
                 let mma_op = {
                   endpoint: "/media/annotation/bulk-update",
                   post: mma_upsert_querys,
@@ -589,7 +589,7 @@ exports.handler = (event, context, callback) => {
                 let mma_upsert_querys_string = JSON.stringify(mma_op, null, 2);
                 s3.upload({Bucket: bucket, Key: mma_relative_url_json, Body: mma_upsert_querys_string, ContentType: "application/json", Tagging: tags_string}, {},
                   function(err, data) {
-                    if (err) 
+                    if (err)
                       console.log('ERROR!');
                     else
                       console.log('OK');
@@ -598,7 +598,7 @@ exports.handler = (event, context, callback) => {
                 let mmm_upsert_querys_string = JSON.stringify(mmm_op, null, 2);
                 s3.upload({Bucket: bucket, Key: mmm_relative_url_json, Body: mmm_upsert_querys_string, ContentType: "application/json", Tagging: tags_string}, {},
                   function(err, data) {
-                    if (err) 
+                    if (err)
                       console.log('ERROR!');
                     else
                       console.log('OK');

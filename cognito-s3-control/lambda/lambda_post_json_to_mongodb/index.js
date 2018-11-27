@@ -8,7 +8,7 @@ let md5 = require('md5');
 exports.handler = (event, context, callback) => {
 
   let bucket = event.Records[0].s3.bucket.name;
-  
+
   let file_key = "credentials/aws-lamda-api-user.txt";
   let params = { Bucket: bucket, Key: file_key };
 
@@ -17,7 +17,7 @@ exports.handler = (event, context, callback) => {
 
     let user_password = data.Body.toString();
     let file_key = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, ' '));
-    let user_id = file_key.split("/")[2];
+    let userId = file_key.split("/")[2];
     let params = { Bucket: bucket, Key: file_key };
 
     // get obj tags
@@ -50,7 +50,7 @@ exports.handler = (event, context, callback) => {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Basic ' + base64UserPasswd,
-              'camera-trap-user-id': user_id
+              'camera-trap-user-id': userId
             }
           };
 
@@ -60,7 +60,7 @@ exports.handler = (event, context, callback) => {
             res.on('data', function (chunk) {
               console.log('Response: ' + chunk);
               postJson();
-              
+
             });
             res.on('error', function (e) {
               console.log("Got error: " + e.message);
@@ -75,7 +75,7 @@ exports.handler = (event, context, callback) => {
               fullCameraLocationMd5: fullCameraLocationMd5,
               projectTitle: tag_data.projectTitle,
               "locked": true,
-              "locked_by": tag_data.user_id,
+              "locked_by": tag_data.userId,
               "locked_on": Date.now() / 1000
             }
           ]);
@@ -90,7 +90,7 @@ exports.handler = (event, context, callback) => {
             let json_string = data.Body.toString();
             let json = JSON.parse(json_string);
             //console.log(json);
-              
+
             let post_data = JSON.stringify(json.post);
             //console.log(post_data);
 
@@ -103,7 +103,7 @@ exports.handler = (event, context, callback) => {
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Basic ' + base64UserPasswd,
-                'camera-trap-user-id': user_id
+                'camera-trap-user-id': userId
               }
             };
 
@@ -132,9 +132,9 @@ exports.handler = (event, context, callback) => {
         }
       }); // get object
     }); // get object tagging
-  
+
   });
 
-  
-  
+
+
 }

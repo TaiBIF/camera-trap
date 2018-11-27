@@ -19,21 +19,21 @@ def check_if_video_exist(file_name, date_time_original, project, site, sub_site,
     check if video exists in TaiBIF
 
     Args:
-        file_name: 
+        file_name:
             string => the status of this action
-        original_datetime: 
-            string =>  video original datetime 
-        project: 
+        original_datetime:
+            string =>  video original datetime
+        project:
             string =>  from object tag - project
-        site: 
+        site:
             string =>  from object tag - site
-        sub_site: 
+        sub_site:
             string =>  from object tag - sub_subsite
-        location: 
+        location:
             string =>  from object tag - location
 
     Return:
-        bool, string => True if video exists , url 
+        bool, string => True if video exists , url
     """
 
     is_video_exist = False
@@ -47,15 +47,15 @@ def check_if_video_exist(file_name, date_time_original, project, site, sub_site,
     if 'results' in result and result['results'] is not None and len(result['results']) > 0:
         is_video_exist = True
         url = result['results'][0]['url']
-    
+
     return is_video_exist, url
 
 def set_default_value(target_dict):
     """
-    set certain pairs to default NULL if the pairs don't exist or have empty value 
+    set certain pairs to default NULL if the pairs don't exist or have empty value
 
     Args:
-        target_dict: 
+        target_dict:
             dict => target dictionary
 
     Return:
@@ -66,11 +66,11 @@ def set_default_value(target_dict):
     target_dict.setdefault('site', 'NULL')
     target_dict.setdefault('sub_site', 'NULL')
     target_dict.setdefault('location', 'NULL')
-    target_dict.setdefault('user_id', 'NULL')
+    target_dict.setdefault('userId', 'NULL')
 
-def lambda_handler(event, context):  
+def lambda_handler(event, context):
     print('event: {}'.format(event))
-    
+
     event_key = urllib.parse.unquote(event['Records'][0]['s3']['object']['key'])
     session_id, file_name = S3Helpers.split_file_name(event_key)
     tags = S3Helpers.obtain_object_tags_from_s3(event_key)
@@ -92,7 +92,7 @@ def lambda_handler(event, context):
     parser.add_argument('--description', default=file_name)
 
     # default 27 - Education, see more - https://developers.google.com/youtube/v3/docs/videoCategories/list
-    parser.add_argument('--category', default='27') 
+    parser.add_argument('--category', default='27')
 
     # keywords for the video
     parser.add_argument('--keywords', default=tags)
@@ -109,11 +109,11 @@ def lambda_handler(event, context):
 
     # check if this video has been uploaded or not
     # if the video was already uploaded, then dismiss the job
-    is_video_exist, youtube_url = check_if_video_exist(file_name, 
-                                            video_meta['date_time_original'], 
-                                            tags['project'], 
-                                            tags['site'], 
-                                            tags['sub_site'], 
+    is_video_exist, youtube_url = check_if_video_exist(file_name,
+                                            video_meta['date_time_original'],
+                                            tags['project'],
+                                            tags['site'],
+                                            tags['sub_site'],
                                             tags['location'])
     if is_video_exist:
         print('{} was already uploaded. url: {}'.format(file_name, youtube_url))
@@ -124,7 +124,7 @@ def lambda_handler(event, context):
         try:
             # upload video
             video_id = initialize_upload(client_instance, args)
-        
+
             # add video to target playlist
             playlist_id = add_video_to_playlist(client_instance, video_id, tags['location'])
 
@@ -142,10 +142,10 @@ def lambda_handler(event, context):
                                         video_mod_datetime=video_meta['date_last_modification'],
                                         video_width=video_meta['width'],
                                         video_height=video_meta['height'],
-                                        user_id=tags['user_id'],
+                                        userId=tags['userId'],
                                         upload_session_id=session_id,
                                         device_metadata=video_meta['device_metadata'],
-                                        exif=video_meta['exif'], 
+                                        exif=video_meta['exif'],
                                         make=video_meta['make'],
                                         model=video_meta['model'])
 
