@@ -19,21 +19,21 @@ def get_full_download_path(file_name):
 
     return '{}{}'.format(SYS_PARAMS.DIR, file_name)
 
-def generate_location_path(project, site, sub_site, location):
+def generate_location_path(projectId, site, subSite, cameraLocation):
     """
-    create a path by giving parameters, this is for the location of TaiBIF 
+    create a path by giving parameters, this is for the cameraLocation of TaiBIF 
 
     Args:
-        :project => string
+        :projectId => string
         :site => string
-        :sub_site => string
-        :location => string
+        :subSite => string
+        :cameraLocation => string
 
     Return:
-        string => location for TaiBIF
+        string => cameraLocation for TaiBIF
     """
     
-    return '{}/{}/{}/{}'.format(project, site, sub_site, location)
+    return '{}/{}/{}/{}'.format(projectId, site, subSite, cameraLocation)
 
 def to_md5_hexdigest(input_string):
     """

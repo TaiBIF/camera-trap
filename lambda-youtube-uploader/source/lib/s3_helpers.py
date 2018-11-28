@@ -54,7 +54,7 @@ def download_file_to_tmp(bucket, file_name, file_key):
             print(e)
             raise
 
-def upload_json_file(bucket, key, body):
+def upload_json_file(bucket, key, body, tagging_string):
     """
     upload json file to a certain bucket
 
@@ -65,6 +65,8 @@ def upload_json_file(bucket, key, body):
             string => object key
         body:
             bytes => json content in bytes
+        tagging_string:
+            string => object tags
 
     Return:
         None
@@ -74,7 +76,7 @@ def upload_json_file(bucket, key, body):
     s3 = get_s3_resource()
     
     try:    
-        reponse = s3.meta.client.put_object(Bucket=bucket, Key=key, Body=body)
+        reponse = s3.meta.client.put_object(Bucket=bucket, Key=key, Body=body, Tagging=tagging_string, ContentType='application/json', ContentEncoding='utf-8', ACL='public-read')
         print(reponse)
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == "404":

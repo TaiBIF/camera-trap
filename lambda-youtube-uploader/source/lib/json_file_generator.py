@@ -3,7 +3,10 @@
 # =======================================
 
 import datetime
+import pytz
+
 import json
+import urllib
 from lib.sys_params import SYS_PARAMS
 
 from lib.s3_helpers import upload_json_file
@@ -16,23 +19,24 @@ class JsonFileGenerator:
         self.bucket = kwargs.setdefault('bucket', '')
         self.youtube_url = kwargs.setdefault('youtube_url', '')
         self.youtube_playlist_id = kwargs.setdefault('youtube_playlist_id', '')
-        self.project = kwargs.setdefault('project', 'NULL')
+        self.projectId = kwargs.setdefault('projectId', 'NULL')
+        self.projectTitle = kwargs.setdefault('projectTitle', 'NULL')
         self.site = kwargs.setdefault('site', 'NULL')
-        self.sub_site = kwargs.setdefault('sub_site', 'NULL')
-        self.location = kwargs.setdefault('location', 'NULL')
+        self.subSite = kwargs.setdefault('subSite', 'NULL')
+        self.cameraLocation = kwargs.setdefault('cameraLocation', 'NULL')
         self.video_name = kwargs.setdefault('video_name', '')
         self.video_length = kwargs.setdefault('video_length', '')
         self.video_org_datetime = kwargs.setdefault('video_org_datetime', datetime.datetime.now())
         self.video_mod_datetime = kwargs.setdefault('video_mod_datetime', datetime.datetime.now())
         self.video_width = kwargs.setdefault('video_width', '')
         self.video_height = kwargs.setdefault('video_height', '')
-        self.user_id = kwargs.setdefault('user_id', 'NULL')
+        self.userId = kwargs.setdefault('userId', 'NULL')
         self.upload_session_id = kwargs.setdefault('upload_session_id', '')
         self.device_metadata = kwargs.setdefault('device_metadata', {}) # 與相機相關但非 EXIF 的 Metadata 
         self.exif = kwargs.setdefault('exif', {}) # EXIF 整組 json 
         self.make = kwargs.setdefault('make', '') # 相機製造商
         self.model = kwargs.setdefault('model', '') # 相機型號
-        self.full_location = generate_location_path(self.project, self.site, self.sub_site, self.location)
+        self.fullCameraLocation = generate_location_path(self.projectId, self.site, self.subSite, self.cameraLocation)
 
         self.enpoint_mma = SYS_PARAMS.ENDPOINT_MMA
         self.enpoint_mmm = SYS_PARAMS.ENDPOINT_MMM
@@ -84,7 +88,8 @@ class JsonFileGenerator:
         file_key = 'json/{}/{}.{}.json'.format(self.upload_session_id, self.video_name, file_type)
 
         # upload json to s3 bucket
-        upload_json_file(self.bucket, file_key, data)
+        tagging = { 'projectId' : self.projectId, 'projectTitle' : self.projectTitle, 'site' : self.site, 'subSite' : self.subSite, 'cameraLocation' : self.cameraLocation, 'userId' : self.userId}
+        upload_json_file(self.bucket, file_key, data, urllib.parse.urlencode(tagging))
 
     def generate_mma_template(self):
         """
@@ -99,36 +104,43 @@ class JsonFileGenerator:
 
         return {
             '_id': to_md5_hexdigest(self.youtube_url),
-            'project': self.project,
-            'full_location_md5': to_md5_hexdigest(self.full_location),
+            'projectId': self.projectId,
+            'fullCameraLocationMd5': to_md5_hexdigest(self.fullCameraLocation),
             '$set': {
-                'modified_by': self.user_id,
+                'modifiedBy': self.userId,
                 'type': 'MovingImage',
                 'date_time_original': self.video_org_datetime.strftime("%Y-%m-%d %H:%M:%S"),  # 格式以 metadata 中擷取出來的為準
+                'date_time_original_timestamp': int(pytz.timezone('Asia/Taipei').localize(self.video_org_datetime).timestamp()), # 由 date_time_original 轉換而來
                 'length_of_video': self.video_length,  # 暫時以 metadata 中擷取出來的為準
                 'youtube_playlist_id': self.youtube_playlist_id
             },
             '$setOnInsert': {
                 'url': self.youtube_url,
                 'url_md5': to_md5_hexdigest(self.youtube_url), 
-                'date_time_original_timestamp': int(self.video_org_datetime.timestamp()), # 由 date_time_original 轉換而來
-                'date_time_corrected_timestamp': int(self.video_org_datetime.timestamp()), # 這邊此值等於 date_time_original_timestamp
-                'project': self.project,
+                'date_time_corrected_timestamp': int(pytz.timezone('Asia/Taipei').localize(self.video_org_datetime).timestamp()), # 這邊此值等於 date_time_original_timestamp
+                'corrected_date_time': self.video_org_datetime.strftime("%Y-%m-%d %H:%M:%S"),
+                'projectId': self.projectId,
+                'projectTitle': self.projectTitle,
                 'site': self.site,
-                'sub_site': self.sub_site,
-                'location': self.location,
-                'full_location_md5': to_md5_hexdigest(self.full_location),
+                'subSite': self.subSite,
+                'cameraLocation': self.cameraLocation,
+                'fullCameraLocationMd5': to_md5_hexdigest(self.fullCameraLocation),
                 'uploaded_file_name': self.video_name,
                 'timezone': '+8',
+                'year': self.video_org_datetime.strftime("%Y"),
+                'month': self.video_org_datetime.strftime("%m"),
+                'day': self.video_org_datetime.strftime("%d"),
+                'hour': self.video_org_datetime.strftime("%H"),
                 'tokens': [
                     {
                         'data': [
                             {
                                 'key': 'species',
                                 'label': '物種',
-                                'value': ''
+                                'value': '尚未辨識'
                             }
-                        ]
+                        ],
+                        'species_shortcut': '尚未辨識'
                     }
                 ]
             },
@@ -151,12 +163,13 @@ class JsonFileGenerator:
 
         return {
             '_id': to_md5_hexdigest(self.youtube_url),
-            'project': self.project,
-            'full_location_md5': to_md5_hexdigest(self.full_location),
+            'projectId': self.projectId,
+            'fullCameraLocationMd5': to_md5_hexdigest(self.fullCameraLocation),
             '$set': {
-                'modified_by': self.user_id,
+                'modifiedBy': self.userId,
                 'type': 'MovingImage',
                 'date_time_original': self.video_org_datetime.strftime("%Y-%m-%d %H:%M:%S"), # 格式以metadata 中擷取出來的為準
+                'date_time_original_timestamp': int(pytz.timezone('Asia/Taipei').localize(self.video_org_datetime).timestamp()), # 由date_time_original 轉換而來
                 'length_of_video': self.video_length, # 暫時以 metadata 中擷取出來的為準
                 'youtube_playlist_id': self.youtube_playlist_id, 
                 'device_metadata': self.device_metadata, # 與相機相關但非 EXIF 的 Metadata 整組直接以 json 先塞在這
@@ -170,15 +183,20 @@ class JsonFileGenerator:
             '$setOnInsert': {
                 'url': self.youtube_url,
                 'url_md5': to_md5_hexdigest(self.youtube_url),
-                'date_time_original_timestamp': int(self.video_org_datetime.timestamp()), # 由date_time_original 轉換而來
-                'date_time_corrected_timestamp': int(self.video_org_datetime.timestamp()), # 這邊此值等於 date_time_original_timestamp
-                'project': self.project,
+                'date_time_corrected_timestamp': int(pytz.timezone('Asia/Taipei').localize(self.video_org_datetime).timestamp()), # 這邊此值等於 date_time_original_timestamp
+                'corrected_date_time': self.video_org_datetime.strftime("%Y-%m-%d %H:%M:%S"),
+                'projectId': self.projectId,
+                'projectTitle': self.projectTitle,
                 'site': self.site,
-                'sub_site': self.sub_site,
-                'location': self.location,
-                'full_location_md5': to_md5_hexdigest(self.full_location),
+                'subSite': self.subSite,
+                'cameraLocation': self.cameraLocation,
+                'fullCameraLocationMd5': to_md5_hexdigest(self.fullCameraLocation),
                 'uploaded_file_name': self.video_name,
-                'timezone': '+8'
+                'timezone': '+8',
+                'year': self.video_org_datetime.strftime("%Y"),
+                'month': self.video_org_datetime.strftime("%m"),
+                'day': self.video_org_datetime.strftime("%d"),
+                'hour': self.video_org_datetime.strftime("%H")
             },
             '$upsert': True
         }

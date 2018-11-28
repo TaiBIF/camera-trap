@@ -14,6 +14,7 @@ let field_map = {
   date_time: 'date_time',
   species: 'species',
   projectTitle: 'project',
+  projectId: 'projectId',
   site: 'site',
   subSite: 'subSite',
   cameraLocation: 'location',
@@ -30,6 +31,7 @@ csv_field_label_map[field_map.species] = "物種";
 // fields that are parts of metadata instead of annotation data
 let not_data_fields = [
   field_map.projectTitle, 
+  field_map.projectId,
   field_map.site, 
   field_map.subSite, 
   field_map.cameraLocation, 
@@ -41,6 +43,7 @@ let not_data_fields = [
 // translate user fields to controlled field names
 let inverse_field_map = {};
 inverse_field_map[field_map.projectTitle] = 'projectTitle';
+inverse_field_map[field_map.projectId] = 'projectId';
 inverse_field_map[field_map.site] = 'site';
 inverse_field_map[field_map.subSite] = 'subSite';
 inverse_field_map[field_map.cameraLocation] = 'cameraLocation';
@@ -126,7 +129,7 @@ exports.handler = (event, context, callback) => {
 
       // TODO: 這個 aggregate 寫差了，日後有空可改
       let post_aggregate = [
-        {"$match": {"_id": tag_data.projectTitle}},
+        {"$match": {"_id": tag_data.projectId}},
         {"$unwind": "$dataFieldEnabled"},
         {
           "$lookup": {
@@ -161,7 +164,7 @@ exports.handler = (event, context, callback) => {
       // 讀取 project-metadata 與欄位設定相關的資訊, 包括物種清單、其他啟用欄位與定時測試照片的時間設定測試
       post_to_api("/project/aggregate", post_aggregate, validate_and_create_json);
     
-      let fullCameraLocation = tag_data.projectTitle + "/" + tag_data.site + "/" + tag_data.subSite + "/" + tag_data.cameraLocation;
+      let fullCameraLocation = tag_data.projectId + "/" + tag_data.site + "/" + tag_data.subSite + "/" + tag_data.cameraLocation;
       let fullCameraLocationMd5 = md5(fullCameraLocation);
 
       // 讀完 project-metadata 後的 callback
@@ -207,10 +210,10 @@ exports.handler = (event, context, callback) => {
         }
 
         let mma_upsert_querys;
-        let mma_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.user_id + "/" + file_key_name_part + ".mma.json";
+        let mma_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.userId + "/" + file_key_name_part + ".mma.json";
 
         let mmm_upsert_querys = [];
-        let mmm_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.user_id + "/" + file_key_name_part + ".mmm.json";
+        let mmm_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.userId + "/" + file_key_name_part + ".mmm.json";
 
         let mma = {};
         let mmm = {};
@@ -405,13 +408,13 @@ exports.handler = (event, context, callback) => {
 
               // for MMA access control
               mma[_id]._id = _id;
-              mma[_id].projectTitle = tag_data.projectTitle;
+              mma[_id].projectId = tag_data.projectId;
               mma[_id].fullCameraLocationMd5 = fullCameraLocationMd5;
 
               // set value
               mma[_id].$set.date_time_corrected_timestamp = corrected_timestamp;
               mma[_id].$set.corrected_date_time = corrected_date_time;
-              mma[_id].$set.modifiedBy = tag_data.user_id;
+              mma[_id].$set.modifiedBy = tag_data.userId;
               mma[_id].$set.type = mm_type;
               mma[_id].$set.year = year;
               mma[_id].$set.month = month;
@@ -425,6 +428,7 @@ exports.handler = (event, context, callback) => {
                 url: relative_url,
                 url_md5: _id,
                 date_time_original_timestamp: timestamp,
+                projectId: tag_data.projectId,
                 projectTitle: tag_data.projectTitle,
                 site: tag_data.site,
                 subSite: tag_data.subSite,
@@ -439,13 +443,13 @@ exports.handler = (event, context, callback) => {
 
               // for MMM access control
               mmm[_id]._id = _id;
-              mmm[_id].projectTitle = tag_data.projectTitle;
+              mmm[_id].projectId = tag_data.projectId;
               mmm[_id].fullCameraLocationMd5 = fullCameraLocationMd5;
 
               // set value
               mmm[_id].$set.date_time_corrected_timestamp = corrected_timestamp;
               mmm[_id].$set.corrected_date_time = corrected_date_time;
-              mmm[_id].$set.modifiedBy = tag_data.user_id;
+              mmm[_id].$set.modifiedBy = tag_data.userId;
               mmm[_id].$set.type = mm_type;
               mmm[_id].$set.year = year;
               mmm[_id].$set.month = month;
@@ -460,6 +464,7 @@ exports.handler = (event, context, callback) => {
                 date_time_original_timestamp: timestamp,
                 modify_date: "",
                 device_metadata: {},
+                projectId: tag_data.projectId,
                 projectTitle: tag_data.projectTitle,
                 site: tag_data.site,
                 subSite: tag_data.subSite,
@@ -509,9 +514,10 @@ exports.handler = (event, context, callback) => {
               if (data_errors.length > 0) {
                 post_to_api("/upload-session/bulk-update", [{
                   _id: upload_session_id,
-                  projectTitle: tag_data.projectTitle,
+                  projectId: tag_data.projectId,
                   $set: {
                     upload_session_id: upload_session_id,
+                    projectId: tag_data.projectId,
                     projectTitle: tag_data.projectTitle,
                     site: tag_data.site,
                     subSite: tag_data.subSite,
@@ -520,7 +526,7 @@ exports.handler = (event, context, callback) => {
                     latestDataDate: latestDataDate,
                     fullCameraLocationMd5: fullCameraLocationMd5,
                     status: "ERROR",
-                    by: tag_data.user_id
+                    by: tag_data.userId
                   },
                   $push: {
                     messages: {
@@ -538,9 +544,10 @@ exports.handler = (event, context, callback) => {
               else {
                 post_to_api("/upload-session/bulk-update", [{
                   _id: upload_session_id,
-                  projectTitle: tag_data.projectTitle,
+                  projectId: tag_data.projectId,
                   $set: {
                     upload_session_id: upload_session_id,
+                    projectId: tag_data.projectId,
                     projectTitle: tag_data.projectTitle,
                     site: tag_data.site,
                     subSite: tag_data.subSite,
@@ -549,7 +556,7 @@ exports.handler = (event, context, callback) => {
                     latestDataDate: latestDataDate,
                     fullCameraLocationMd5: fullCameraLocationMd5,
                     status: "SUCCESS",
-                    by: tag_data.user_id
+                    by: tag_data.userId
                   },
                   $upsert: true
                 }], function(res) {

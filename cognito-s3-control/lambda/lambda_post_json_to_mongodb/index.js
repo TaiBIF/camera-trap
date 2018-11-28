@@ -17,7 +17,7 @@ exports.handler = (event, context, callback) => {
 
     let user_password = data.Body.toString();
     let file_key = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, ' '));
-    let user_id = file_key.split("/")[2];
+    let userId = file_key.split("/")[2];
     let params = { Bucket: bucket, Key: file_key };
 
     // get obj tags
@@ -50,7 +50,7 @@ exports.handler = (event, context, callback) => {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Basic ' + base64UserPasswd,
-              'camera-trap-user-id': user_id
+              'camera-trap-user-id': userId
             }
           };
 
@@ -68,14 +68,14 @@ exports.handler = (event, context, callback) => {
             });
           });
 
-          let fullCameraLocation = tag_data.projectTitle + "/" + tag_data.site + "/" + tag_data.subSite + "/" + tag_data.cameraLocation;
+          let fullCameraLocation = tag_data.projectId + "/" + tag_data.site + "/" + tag_data.subSite + "/" + tag_data.cameraLocation;
           let fullCameraLocationMd5 = md5(fullCameraLocation);
           let lock_post_data = JSON.stringify([
             {
               fullCameraLocationMd5: fullCameraLocationMd5,
-              projectTitle: tag_data.projectTitle,
+              projectId: tag_data.projectId,
               "locked": true,
-              "locked_by": tag_data.user_id,
+              "locked_by": tag_data.userId,
               "locked_on": Date.now() / 1000
             }
           ]);
@@ -103,7 +103,7 @@ exports.handler = (event, context, callback) => {
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Basic ' + base64UserPasswd,
-                'camera-trap-user-id': user_id
+                'camera-trap-user-id': userId
               }
             };
 

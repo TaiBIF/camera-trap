@@ -30,7 +30,7 @@ def create_endpoint(resource, action):
 
     return '{}/{}/{}'.format(TAIBIF_API_URL, resource, action)
 
-def query_multimedia_metadata(file_name, original_datetime, full_location):
+def query_multimedia_metadata(file_name, original_datetime, fullCameraLocationMd5):
     """
     check if metadata exists in TaiBIF
 
@@ -39,7 +39,7 @@ def query_multimedia_metadata(file_name, original_datetime, full_location):
             string => target file name
         original_datetime: 
             string => video original datetime in timestamp
-        full_location: 
+        fullCameraLocationMd5: 
             string => full location after md5
 
     Return:
@@ -52,7 +52,7 @@ def query_multimedia_metadata(file_name, original_datetime, full_location):
         'query':{
             'uploaded_file_name': file_name,
             'date_time_original_timestamp': original_datetime,
-            'fullCameraLocationMd5': full_location
+            'fullCameraLocationMd5': fullCameraLocationMd5
         } 
     }, ensure_ascii=False).encode('utf8')
 

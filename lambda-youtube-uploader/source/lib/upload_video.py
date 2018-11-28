@@ -216,6 +216,7 @@ def resumable_upload(request):
             print('Uploading file...')
             status, response = request.next_chunk()
             if response is not None:
+                print(response)
                 if 'id' in response:
                     print('Video id "%s" was successfully uploaded.' %
                           response['id'])
@@ -373,7 +374,7 @@ def search_target_playlist(client_instance, key, next_page_token):
             return None
 
 
-def add_video_to_playlist(client_instance, video_id, location):
+def add_video_to_playlist(client_instance, video_id, cameraLocation):
     """
     add video to playlist
 
@@ -382,7 +383,7 @@ def add_video_to_playlist(client_instance, video_id, location):
             resource => youtube resource
         :video_id
             string => the youtube video id
-        :location
+        :cameraLocation
             string => title of the playlist
 
     Return:
@@ -398,21 +399,21 @@ def add_video_to_playlist(client_instance, video_id, location):
 
     # set true if target if found
     for item in playlist['items']:
-        if item['snippet']['title'] == location:
+        if item['snippet']['title'] == cameraLocation:
             playlist_id = item['id']
             break
 
     # else find the following pages
     if playlist_id is None and 'nextPageToken' in playlist:
         playlist_id = search_target_playlist(client_instance,
-                                             location, playlist['nextPageToken'])
+                                             cameraLocation, playlist['nextPageToken'])
 
     # insert new playlist if neccessary
     if playlist_id is None:
         playlist_id = playlists_insert(client_instance,
-                                       {'snippet.title': location,
-                                        'snippet.description': location,
-                                        'snippet.tags[]': location,
+                                       {'snippet.title': cameraLocation,
+                                        'snippet.description': cameraLocation,
+                                        'snippet.tags[]': cameraLocation,
                                         'snippet.defaultLanguage': '',
                                         'status.privacyStatus': 'public'},
                                        part='snippet,status')

@@ -8,6 +8,7 @@ from sys import stderr
 import os
 from lib.sys_params import SYS_PARAMS
 import datetime
+import pytz
 
 def extra_video_meta(file_name):
     """
@@ -29,6 +30,7 @@ def extra_video_meta(file_name):
     with parser:
         try:
             metadata = extractMetadata(parser)
+            print(metadata)
         except Exception as err:
             print("Metadata extraction error: %s" % err)
             metadata = None
@@ -41,8 +43,13 @@ def extra_video_meta(file_name):
     statinfo = os.stat(file_name)
 
     # create time and modification time from file info
-    file_ctime = datetime.datetime.fromtimestamp(statinfo.st_ctime)
-    file_mtime = datetime.datetime.fromtimestamp(statinfo.st_mtime)
+    # THESE OPERATIONS ARE TOTALLY USELESS DUE TO MAKING COPIES TO TMP AT THE BEGINNING OF THIS LAMBDA FUNCTION
+    # THE file_ctime AND file_mtime ARE ALWAYS SET TO THE TIME MAKING THOSE COPIES
+    # TODO: FIND RELATIVELY SOLID ctime AND mtime FROM METADATA
+    file_ctime = datetime.datetime.fromtimestamp(statinfo.st_ctime).astimezone(pytz.timezone('Asia/Taipei'))
+    file_mtime = datetime.datetime.fromtimestamp(statinfo.st_mtime).astimezone(pytz.timezone('Asia/Taipei'))
+    print("File created at %d, %s" % (statinfo.st_ctime, file_ctime))
+    print("File modified at %d, %s" % (statinfo.st_mtime, file_mtime))
 
     # information from metadata
     date_time_original = metadata._Metadata__data['date_time_original']

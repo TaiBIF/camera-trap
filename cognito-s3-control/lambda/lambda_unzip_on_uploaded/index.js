@@ -55,10 +55,10 @@ exports.handler = (event, context, callback) => {
     let parser = unzip.Parse({ decodeString: (buffer) => { return iconvLite.decode(buffer, 'utf8'); } });
 
     let mma_upsert_querys = [];
-    let mma_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.user_id + "/" + file_key_name_part + ".mma.json";
+    let mma_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.userId + "/" + file_key_name_part + ".mma.json";
 
     let mmm_upsert_querys = [];
-    let mmm_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.user_id + "/" + file_key_name_part + ".mmm.json";
+    let mmm_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.userId + "/" + file_key_name_part + ".mmm.json";
 
     let unzip_close = false;
     let cnt_of_exif_extracting = 0;
@@ -75,7 +75,7 @@ exports.handler = (event, context, callback) => {
         // if (baseFileNameParts.length > 1)
         baseFileNameParts.pop();
         
-        let fullCameraLocation = tag_data.projectTitle + "/" + tag_data.site + "/" + tag_data.subSite + "/" + tag_data.cameraLocation;
+        let fullCameraLocation = tag_data.projectId + "/" + tag_data.site + "/" + tag_data.subSite + "/" + tag_data.cameraLocation;
         let relocate_path = root_dir + "images/orig/" + fullCameraLocation;
         let relocate_path_low_quality = root_dir + "images/_res_quality_/" + fullCameraLocation;
 
@@ -196,10 +196,10 @@ exports.handler = (event, context, callback) => {
 
                 let mma_upsert_query = {
                   _id: _id,
-                  projectTitle: tag_data.projectTitle,
+                  projectId: tag_data.projectId,
                   fullCameraLocationMd5: fullCameraLocationMd5,
                   $set: { // 只能由多媒體檔案中擷取出的資訊，放在 $set。目的是補充先上傳 CSV 再上傳 多媒體檔時欠缺的 metadata
-                    modifiedBy: tag_data.user_id,
+                    modifiedBy: tag_data.userId,
                     type: "StillImage",
                     date_time_original: exifData.exif.DateTimeOriginal,
                     date_time_original_timestamp: timestamp, // 這個值可從 CSV 中的拍照時間還原。或在相機設定錯誤時覆蓋掉 metadata
@@ -211,6 +211,7 @@ exports.handler = (event, context, callback) => {
                     url_md5: _id,
                     date_time_corrected_timestamp: timestamp,
                     corrected_date_time: dateTimeString,
+                    projectId: tag_data.projectId,
                     projectTitle: tag_data.projectTitle,
                     site: tag_data.site,
                     subSite: tag_data.subSite,
@@ -226,8 +227,9 @@ exports.handler = (event, context, callback) => {
                       data :[{
                         key: species_field,
                         label: "物種",
-                        value: ""
-                      }]
+                        value: "尚未辨識"
+                      }],
+                      species_shortcut: '尚未辨識'
                     }]
                   },
                   $addToSet: {related_upload_sessions: upload_session_id},
@@ -237,10 +239,10 @@ exports.handler = (event, context, callback) => {
 
                 let mmm_upsert_query = {
                   _id: _id,
-                  projectTitle: tag_data.projectTitle,
+                  projectId: tag_data.projectId,
                   fullCameraLocationMd5: fullCameraLocationMd5,
                   $set: {
-                    modifiedBy: tag_data.user_id,
+                    modifiedBy: tag_data.userId,
                     type: "StillImage",
                     date_time_original_timestamp: timestamp,
                     date_time_original: exifData.exif.DateTimeOriginal,
@@ -257,6 +259,7 @@ exports.handler = (event, context, callback) => {
                     url_md5: _id,
                     date_time_corrected_timestamp: timestamp,
                     corrected_date_time: dateTimeString,
+                    projectId: tag_data.projectId,
                     projectTitle: tag_data.projectTitle,
                     site: tag_data.site,
                     subSite: tag_data.subSite,

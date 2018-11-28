@@ -14,7 +14,9 @@ from lib.json_file_generator import JsonFileGenerator
 from lib.taibif_api import query_multimedia_metadata
 from lib.upload_video import *
 
-def check_if_video_exist(file_name, date_time_original, project, site, sub_site, location):
+import pytz
+
+def check_if_video_exist(file_name, date_time_original, projectId, site, subSite, cameraLocation):
     """
     check if video exists in TaiBIF
 
@@ -23,14 +25,14 @@ def check_if_video_exist(file_name, date_time_original, project, site, sub_site,
             string => the status of this action
         original_datetime: 
             string =>  video original datetime 
-        project: 
-            string =>  from object tag - project
+        projectId: 
+            string =>  from object tag - projectId
         site: 
             string =>  from object tag - site
-        sub_site: 
+        subSite: 
             string =>  from object tag - sub_subsite
-        location: 
-            string =>  from object tag - location
+        cameraLocation: 
+            string =>  from object tag - cameraLocation
 
     Return:
         bool, string => True if video exists , url 
@@ -41,8 +43,8 @@ def check_if_video_exist(file_name, date_time_original, project, site, sub_site,
 
     # check if this video has been uploaded or not
     # if the video was already uploaded, then dismiss the job
-    location_path = CommenHelpers.generate_location_path(project, site, sub_site, location)
-    result = query_multimedia_metadata(file_name, int(date_time_original.timestamp()), CommenHelpers.to_md5_hexdigest(location_path))
+    location_path = CommenHelpers.generate_location_path(projectId, site, subSite, cameraLocation)
+    result = query_multimedia_metadata(file_name, int(pytz.timezone('Asia/Taipei').localize(date_time_original).timestamp()), CommenHelpers.to_md5_hexdigest(location_path))
 
     if 'results' in result and result['results'] is not None and len(result['results']) > 0:
         is_video_exist = True
@@ -62,11 +64,12 @@ def set_default_value(target_dict):
         None
     """
 
-    target_dict.setdefault('project', 'NULL')
+    target_dict.setdefault('projectId', 'NULL')
+    target_dict.setdefault('projectTitle', 'NULL')
     target_dict.setdefault('site', 'NULL')
-    target_dict.setdefault('sub_site', 'NULL')
-    target_dict.setdefault('location', 'NULL')
-    target_dict.setdefault('user_id', 'NULL')
+    target_dict.setdefault('subSite', 'NULL')
+    target_dict.setdefault('cameraLocation', 'NULL')
+    target_dict.setdefault('userId', 'NULL')
 
 def lambda_handler(event, context):  
     print('event: {}'.format(event))
@@ -111,10 +114,10 @@ def lambda_handler(event, context):
     # if the video was already uploaded, then dismiss the job
     is_video_exist, youtube_url = check_if_video_exist(file_name, 
                                             video_meta['date_time_original'], 
-                                            tags['project'], 
+                                            tags['projectId'], 
                                             tags['site'], 
-                                            tags['sub_site'], 
-                                            tags['location'])
+                                            tags['subSite'], 
+                                            tags['cameraLocation'])
     if is_video_exist:
         print('{} was already uploaded. url: {}'.format(file_name, youtube_url))
     else:
@@ -126,23 +129,24 @@ def lambda_handler(event, context):
             video_id = initialize_upload(client_instance, args)
         
             # add video to target playlist
-            playlist_id = add_video_to_playlist(client_instance, video_id, tags['location'])
+            playlist_id = add_video_to_playlist(client_instance, video_id, tags['cameraLocation'])
 
             # create mma/mmm json file and upload to s3 bucket
             json_gen = JsonFileGenerator(bucket=SYS_PARAMS.SRC_BUCKET,
                                         youtube_url='{}{}'.format(SYS_PARAMS.YOUTUBE_VIDEO_URL, video_id),
                                         youtube_playlist_id=playlist_id,
-                                        project=tags['project'],
+                                        projectId=tags['projectId'],
+                                        projectTitle=tags['projectTitle'],
                                         site=tags['site'],
-                                        sub_site=tags['sub_site'],
-                                        location=tags['location'],
+                                        subSite=tags['subSite'],
+                                        cameraLocation=tags['cameraLocation'],
                                         video_name=file_name,
                                         video_length=video_meta['duration'],
                                         video_org_datetime=video_meta['date_time_original'],
                                         video_mod_datetime=video_meta['date_last_modification'],
                                         video_width=video_meta['width'],
                                         video_height=video_meta['height'],
-                                        user_id=tags['user_id'],
+                                        userId=tags['userId'],
                                         upload_session_id=session_id,
                                         device_metadata=video_meta['device_metadata'],
                                         exif=video_meta['exif'], 
