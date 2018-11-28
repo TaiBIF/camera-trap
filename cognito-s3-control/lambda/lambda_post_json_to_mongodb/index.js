@@ -8,7 +8,7 @@ let md5 = require('md5');
 exports.handler = (event, context, callback) => {
 
   let bucket = event.Records[0].s3.bucket.name;
-  
+
   let file_key = "credentials/aws-lamda-api-user.txt";
   let params = { Bucket: bucket, Key: file_key };
 
@@ -60,7 +60,7 @@ exports.handler = (event, context, callback) => {
             res.on('data', function (chunk) {
               console.log('Response: ' + chunk);
               postJson();
-              
+
             });
             res.on('error', function (e) {
               console.log("Got error: " + e.message);
@@ -90,7 +90,7 @@ exports.handler = (event, context, callback) => {
             let json_string = data.Body.toString();
             let json = JSON.parse(json_string);
             //console.log(json);
-              
+
             let post_data = JSON.stringify(json.post);
             //console.log(post_data);
 
@@ -132,9 +132,9 @@ exports.handler = (event, context, callback) => {
         }
       }); // get object
     }); // get object tagging
-  
+
   });
 
-  
-  
+
+
 }

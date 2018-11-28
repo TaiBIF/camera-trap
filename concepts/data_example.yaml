@@ -91,7 +91,7 @@ multimedia_metadata:
     year_original: '2017'
     month_original: '02'
     day_original: '09'
-    hour_original: '06'    
+    hour_original: '06'
     create_date: 2017:02:09 06:11:09
     wgs84dec_x: $wgs84dec_x1 # wgs84 十進位，存個副本以免計畫樣點資料被惡搞
     wgs84dec_y: $wgs84dec_y1
@@ -106,9 +106,9 @@ project_metadata:
     code: 計畫編號
     pi:
       - name: PI name 1
-        user_id: (非必要)
+        userId: (非必要)
       - name: PI name 2
-        user_id: (非必要)
+        userId: (非必要)
       - ...
     from_year:
     data_from_ts: min(project multimedia created)
@@ -139,10 +139,10 @@ project_metadata:
     daily_test:
       - since: some datetime or timestamp
         time: test time of a day
-    
+
 
 ---
-location_metadata:  
+location_metadata:
   - full_location_md5: md5-hashed full_location (id field) # this is id
     project: some project
     site: some site
@@ -214,7 +214,7 @@ ctp_users:
     name: $some_name
     email: $some_email
     id_token: string # 其實好像不需要
-    project_roles: 
+    project_roles:
     - project: $some_project
       roles:
         - $some_role
