@@ -12,7 +12,7 @@ exports.handler = (event, context, callback) => {
   let file_key = "credentials/aws-lamda-api-user.txt";
   let params = { Bucket: bucket, Key: file_key };
 
-  // get user password
+  // get user password from s3
   s3.getObject(params, function(err, data){
 
     let user_password = data.Body.toString();
@@ -32,7 +32,7 @@ exports.handler = (event, context, callback) => {
 
       if (!tag_data.subSite) tag_data.subSite = 'NULL';
 
-      // get obj
+      // get mma and mmm json
       s3.getObject(params, function(err, data){
         if (err) {
           console.log(err);
@@ -41,6 +41,8 @@ exports.handler = (event, context, callback) => {
 
           console.log(params);
           let base64UserPasswd = Buffer.from(user_password).toString('base64');
+
+          // TODO: MUST REWRITE these https post requests
 
           // data lock api
           let lock_post_options = {
@@ -120,7 +122,7 @@ exports.handler = (event, context, callback) => {
                 res.setEncoding('utf8');
                 res.on('data', function (chunk) {
                   console.log('Response: ' + chunk);
-                  context.succeed();
+                  updateProjectDataSpan(json.post);
                 });
                 res.on('error', function (e) {
                   console.log("Got error: " + e.message);
@@ -133,12 +135,83 @@ exports.handler = (event, context, callback) => {
               post_req.end();
             }
           } // end of func postJson
+
+          function updateProjectDataSpan (mmxJson) {
+
+            let maxTimestamp = -Infinity;
+            let minTimestamp = Infinity;
+            mmxJson.forEach(jo => {
+              let dateTimeCorrectedTimestamp = jo.$set.date_time_corrected_timestamp || jo.$setOnInsert.date_time_corrected_timestamp;
+              if (dateTimeCorrectedTimestamp > maxTimestamp) maxTimestamp = dateTimeCorrectedTimestamp;
+              if (dateTimeCorrectedTimestamp < minTimestamp) minTimestamp = dateTimeCorrectedTimestamp;
+            });
+
+            https.get(`https://api-dev.camera-trap.tw/project/${tag_data.projectId}`, (resp) => {
+              let data = '';
+            
+              // A chunk of data has been recieved.
+              resp.on('data', (chunk) => {
+                data += chunk;
+              });
+            
+              // The whole response has been received. Print out the result.
+              resp.on('end', () => {
+                let prj = JSON.parse(data);
+                let {earliestRecordTimestamp, latestRecordTimestamp} = prj;
+                if (!earliestRecordTimestamp) earliestRecordTimestamp = Infinity;
+                if (!latestRecordTimestamp) latestRecordTimestamp = -Infinity;
+    
+                if (maxTimestamp > latestRecordTimestamp) latestRecordTimestamp = maxTimestamp;
+                if (minTimestamp < earliestRecordTimestamp) earliestRecordTimestamp = minTimestamp;
+    
+                let update_project_data_span = [{
+                  _id: tag_data.projectId,
+                  projectId: tag_data.projectId,
+                  $set: {
+                    earliestRecordTimestamp,
+                    latestRecordTimestamp
+                  }
+                }];
+    
+                // An object of options to indicate where to post to
+                let post_options = {
+                  host: "api-dev.camera-trap.tw",
+                  port: '443',
+                  path: '/project/bulk-update',
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Basic ' + base64UserPasswd,
+                    'camera-trap-user-id': userId
+                  }
+                };
+    
+                // Set up the request
+                let post_req = https.request(post_options, function(res) {
+                  res.setEncoding('utf8');
+                  res.on('data', function (chunk) {
+                    console.log('Response: ' + chunk);
+                    context.succeed();
+                  });
+                  res.on('error', function (e) {
+                    console.log("Got error: " + e.message);
+                    context.done(null, 'FAILURE');
+                  });
+                });
+    
+                // post the data
+                post_req.write(JSON.stringify(update_project_data_span));
+                post_req.end();
+
+              });
+            
+            }).on("error", (err) => {
+              console.log("Error: " + err.message);
+              context.done(null, 'FAILURE');
+            });
+          } // end of func updateProjectDataSpan
         }
       }); // get object
     }); // get object tagging
-
   });
-
-
-
 }
