@@ -85,7 +85,7 @@ class JsonFileGenerator:
         }, ensure_ascii=False).encode('utf8')
 
         # create file key for uploading to s3 bucket
-        file_key = 'json/{}/{}.{}.json'.format(self.upload_session_id, self.video_name, file_type)
+        file_key = 'json/{}/{}/{}.{}.json'.format(self.upload_session_id, self.userId, self.video_name, file_type)
 
         # upload json to s3 bucket
         tagging = { 'projectId' : self.projectId, 'projectTitle' : self.projectTitle, 'site' : self.site, 'subSite' : self.subSite, 'cameraLocation' : self.cameraLocation, 'userId' : self.userId}

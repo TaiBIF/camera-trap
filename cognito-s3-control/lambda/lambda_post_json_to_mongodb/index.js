@@ -39,6 +39,7 @@ exports.handler = (event, context, callback) => {
         }
         else {
 
+          console.log(params);
           let base64UserPasswd = Buffer.from(user_password).toString('base64');
 
           // data lock api
@@ -74,11 +75,14 @@ exports.handler = (event, context, callback) => {
             {
               fullCameraLocationMd5: fullCameraLocationMd5,
               projectId: tag_data.projectId,
+              projectTitle: tag_data.projectTitle,
               "locked": true,
               "locked_by": tag_data.userId,
               "locked_on": Date.now() / 1000
             }
           ]);
+
+          console.log(lock_post_data);
 
           // post the data
           lock_post_req.write(lock_post_data);
