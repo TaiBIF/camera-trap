@@ -55,8 +55,9 @@ let required_fileds = [
 ];
 
 let user_password;
+let userId;
 
-function post_to_api (endpoint_path, json, post_callback) {
+function post_to_api (endpoint_path, json, post_callback, callbackArgsOverride = undefined) {
   let post_options = {
     host: "api-dev.camera-trap.tw",
     port: '443',
@@ -64,7 +65,8 @@ function post_to_api (endpoint_path, json, post_callback) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': 'Basic ' + Buffer.from(user_password).toString('base64')
+      'Authorization': 'Basic ' + Buffer.from(user_password).toString('base64'),
+      'camera-trap-user-id': userId
     }
   };
 
@@ -72,7 +74,12 @@ function post_to_api (endpoint_path, json, post_callback) {
     res.setEncoding('utf8');
     res.on('data', function (res) {
       console.log('Response: ' + res);
-      post_callback(JSON.parse(res));
+      if (callbackArgsOverride !== undefined) {
+        post_callback(callbackArgsOverride);
+      }
+      else {
+        post_callback(JSON.parse(res));
+      }
       // context.succeed();
     });
     res.on('error', function (e) {
@@ -112,6 +119,8 @@ exports.handler = (event, context, callback) => {
       tags.TagSet.forEach(function(d){
         tag_data[d.Key] = d.Value;
       });
+
+      userId = tag_data.userId;
 
       function encodeQueryData (data) {
         let ret = [];
@@ -512,31 +521,24 @@ exports.handler = (event, context, callback) => {
               }
 
               if (data_errors.length > 0) {
+                let modified = Date.now() / 1000;
                 post_to_api("/upload-session/bulk-update", [{
                   _id: upload_session_id,
                   projectId: tag_data.projectId,
                   $set: {
-                    upload_session_id: upload_session_id,
-                    projectId: tag_data.projectId,
-                    projectTitle: tag_data.projectTitle,
-                    site: tag_data.site,
-                    subSite: tag_data.subSite,
-                    cameraLocation: tag_data.cameraLocation,
                     earliestDataDate: earliestDataDate,
                     latestDataDate: latestDataDate,
-                    fullCameraLocationMd5: fullCameraLocationMd5,
                     status: "ERROR",
-                    by: tag_data.userId
+                    modified: modified
                   },
                   $push: {
                     messages: {
                       problematic_ids: Array.from(problematic_ids),
                       key: file_key,
                       errors: data_errors,
-                      modified: (Date.now() / 1000)
+                      modified: modified
                     }
-                  },
-                  $upsert: true
+                  }
                 }], function(res) {
                   console.log(["ERROR REPORTING", res]);
                 });
@@ -546,19 +548,19 @@ exports.handler = (event, context, callback) => {
                   _id: upload_session_id,
                   projectId: tag_data.projectId,
                   $set: {
-                    upload_session_id: upload_session_id,
-                    projectId: tag_data.projectId,
-                    projectTitle: tag_data.projectTitle,
-                    site: tag_data.site,
-                    subSite: tag_data.subSite,
-                    cameraLocation: tag_data.cameraLocation,
                     earliestDataDate: earliestDataDate,
                     latestDataDate: latestDataDate,
-                    fullCameraLocationMd5: fullCameraLocationMd5,
                     status: "SUCCESS",
-                    by: tag_data.userId
+                    modified: modified
                   },
-                  $upsert: true
+                  $push: {
+                    messages: {
+                      problematic_ids: [],
+                      key: file_key,
+                      errors: [],
+                      modified: modified
+                    }
+                  }
                 }], function(res) {
                   console.log(["SUCCESS", res]);
                 });

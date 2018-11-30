@@ -5,6 +5,53 @@ let s3 = new AWS.S3();
 let https = require('https');
 let md5 = require('md5');
 
+let user_password;
+let userId;
+
+function post_to_api (endpoint_path, json, post_callback, callbackArgsOverride = undefined) {
+  let post_options = {
+    host: "api-dev.camera-trap.tw",
+    port: '443',
+    path: endpoint_path,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Basic ' + Buffer.from(user_password).toString('base64'),
+      'camera-trap-user-id': userId
+    }
+  };
+
+  let post_req = https.request(post_options, function(res) {
+    res.setEncoding('utf8');
+    res.on('data', function (_res) {
+      // console.log('Response: ' + _res);
+
+      const result = JSON.parse(_res);
+
+      if (result.error) {
+        if (post_callback.onError) {
+          post_callback.onError(result.error);
+        }
+      } else {
+        if (callbackArgsOverride !== undefined) {
+          post_callback.onSuccess(callbackArgsOverride);
+        } else {
+          post_callback.onSuccess(result);
+        }
+      }
+      // context.succeed();
+    });
+    res.on('error', function (e) {
+      console.log("Got error: " + e.message);
+      context.done(null, 'FAILURE');
+    });
+  });
+
+  // post the data
+  post_req.write(JSON.stringify(json));
+  post_req.end();
+}
+
 exports.handler = (event, context, callback) => {
 
   let bucket = event.Records[0].s3.bucket.name;
@@ -15,9 +62,10 @@ exports.handler = (event, context, callback) => {
   // get user password from s3
   s3.getObject(params, function(err, data){
 
-    let user_password = data.Body.toString();
+    user_password = data.Body.toString();
     let file_key = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, ' '));
-    let userId = file_key.split("/")[2];
+    let uploadSessionId = file_key.split("/")[1];
+    console.log('-----------' + uploadSessionId);
     let params = { Bucket: bucket, Key: file_key };
 
     // get obj tags
@@ -30,6 +78,9 @@ exports.handler = (event, context, callback) => {
         tag_data[d.Key] = d.Value;
       });
 
+      // userId = file_key.split("/")[2];
+      userId = tag_data.userId;
+
       if (!tag_data.subSite) tag_data.subSite = 'NULL';
 
       // get mma and mmm json
@@ -39,41 +90,12 @@ exports.handler = (event, context, callback) => {
         }
         else {
 
-          console.log(params);
-          let base64UserPasswd = Buffer.from(user_password).toString('base64');
+          // console.log(params);
 
           // TODO: MUST REWRITE these https post requests
-
-          // data lock api
-          let lock_post_options = {
-            host: "api-dev.camera-trap.tw",
-            port: '443',
-            path: "/camera-location/data-lock/bulk-replace",
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Basic ' + base64UserPasswd,
-              'camera-trap-user-id': userId
-            }
-          };
-
-          // Set up the lock data request
-          let lock_post_req = https.request(lock_post_options, function(res) {
-            res.setEncoding('utf8');
-            res.on('data', function (chunk) {
-              console.log('Response: ' + chunk);
-              postJson();
-
-            });
-            res.on('error', function (e) {
-              console.log("Got error: " + e.message);
-              context.done(null, 'FAILURE');
-            });
-          });
-
           let fullCameraLocation = tag_data.projectId + "/" + tag_data.site + "/" + tag_data.subSite + "/" + tag_data.cameraLocation;
           let fullCameraLocationMd5 = md5(fullCameraLocation);
-          let lock_post_data = JSON.stringify([
+          let lock_post_data = [
             {
               fullCameraLocationMd5: fullCameraLocationMd5,
               projectId: tag_data.projectId,
@@ -82,69 +104,71 @@ exports.handler = (event, context, callback) => {
               "locked_by": tag_data.userId,
               "locked_on": Date.now() / 1000
             }
-          ]);
+          ];
 
-          console.log(lock_post_data);
-
+          // console.log(lock_post_data);
           // post the data
-          lock_post_req.write(lock_post_data);
-          lock_post_req.end();
+          post_to_api ("/camera-location/data-lock/bulk-replace", lock_post_data, { onSuccess: postJson, onError: jsonUploadError });
 
 
           function postJson () {
-
+            console.log('-----------postJson');
             let json_string = data.Body.toString();
             let json = JSON.parse(json_string);
             //console.log(json);
 
-            let post_data = JSON.stringify(json.post);
-            //console.log(post_data);
-
             // An object of options to indicate where to post to
-            let post_options = {
-              host: "api-dev.camera-trap.tw",
-              port: '443',
-              path: json.endpoint,
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Basic ' + base64UserPasswd,
-                'camera-trap-user-id': userId
-              }
-            };
-
-
             let force_import = (event.force_import === undefined) ? true : event.force_import;
 
             if (force_import || !json.hold) {
-            // Set up the request
-              let post_req = https.request(post_options, function(res) {
-                res.setEncoding('utf8');
-                res.on('data', function (chunk) {
-                  console.log('Response: ' + chunk);
-                  updateProjectDataSpan(json.post);
-                });
-                res.on('error', function (e) {
-                  console.log("Got error: " + e.message);
-                  context.done(null, 'FAILURE');
-                });
-              });
-
-              // post the data
-              post_req.write(post_data);
-              post_req.end();
+              post_to_api(json.endpoint, json.post, { onSuccess: updateProjectDataSpan, onError: jsonUploadError }, json.post);
             }
           } // end of func postJson
-
+          
           function updateProjectDataSpan (mmxJson) {
+
+            console.log('-----------updateProjectDataSpan');
 
             let maxTimestamp = -Infinity;
             let minTimestamp = Infinity;
+            let maxDateTime = '';
+            let minDateTime = '';
+            
             mmxJson.forEach(jo => {
               let dateTimeCorrectedTimestamp = jo.$set.date_time_corrected_timestamp || jo.$setOnInsert.date_time_corrected_timestamp;
-              if (dateTimeCorrectedTimestamp > maxTimestamp) maxTimestamp = dateTimeCorrectedTimestamp;
-              if (dateTimeCorrectedTimestamp < minTimestamp) minTimestamp = dateTimeCorrectedTimestamp;
+              if (dateTimeCorrectedTimestamp > maxTimestamp) {
+                maxTimestamp = dateTimeCorrectedTimestamp;
+                maxDateTime = jo.$set.corrected_date_time || jo.$setOnInsert.corrected_date_time;
+              }
+              if (dateTimeCorrectedTimestamp < minTimestamp) {
+                minTimestamp = dateTimeCorrectedTimestamp;
+                minDateTime = jo.$set.corrected_date_time || jo.$setOnInsert.corrected_date_time;
+              }
             });
+
+            let modified = Date.now() / 1000;
+            post_to_api(
+              '/upload-session/bulk-update',[{
+                _id: uploadSessionId,
+                projectId: tag_data.projectId,
+                $set: {
+                  status: "SUCCESS",
+                  modified: modified,
+                  earliestDataDate: minDateTime,
+                  latestDataDate: maxDateTime
+                },
+                $push: {
+                  messages: {
+                    problematic_ids: [],
+                    key: file_key,
+                    errors: [],
+                    modified: modified,
+                  }
+                }
+              }],
+              {onSuccess: console.log}
+            );            
+
 
             https.get(`https://api-dev.camera-trap.tw/project/${tag_data.projectId}`, (resp) => {
               let data = '';
@@ -173,35 +197,7 @@ exports.handler = (event, context, callback) => {
                   }
                 }];
     
-                // An object of options to indicate where to post to
-                let post_options = {
-                  host: "api-dev.camera-trap.tw",
-                  port: '443',
-                  path: '/project/bulk-update',
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Basic ' + base64UserPasswd,
-                    'camera-trap-user-id': userId
-                  }
-                };
-    
-                // Set up the request
-                let post_req = https.request(post_options, function(res) {
-                  res.setEncoding('utf8');
-                  res.on('data', function (chunk) {
-                    console.log('Response: ' + chunk);
-                    context.succeed();
-                  });
-                  res.on('error', function (e) {
-                    console.log("Got error: " + e.message);
-                    context.done(null, 'FAILURE');
-                  });
-                });
-    
-                // post the data
-                post_req.write(JSON.stringify(update_project_data_span));
-                post_req.end();
+                post_to_api('/project/bulk-update', update_project_data_span, { onSuccess: context.succeed }, null);
 
               });
             
@@ -210,6 +206,36 @@ exports.handler = (event, context, callback) => {
               context.done(null, 'FAILURE');
             });
           } // end of func updateProjectDataSpan
+
+          function jsonUploadError (uploadErr) {
+            console.log('-----------jsonUploadError');
+            let modified = Date.now() / 1000;
+            let uploadError = [{
+              _id: uploadSessionId,
+              projectId: tag_data.projectId,
+              $set: {
+                status: "ERROR",
+                modified: modified
+              },
+              $push: {
+                messages: {
+                  problematic_ids: [],
+                  key: file_key,
+                  errors: [uploadErr.message],
+                  modified: modified,
+                }
+              }
+            }];
+            console.log(uploadError);
+            post_to_api(
+              '/upload-session/bulk-update',
+              uploadError,
+              { onSuccess: console.log, onError: console.log }
+            );
+          }
+
+
+
         }
       }); // get object
     }); // get object tagging
