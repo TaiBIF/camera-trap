@@ -552,14 +552,6 @@ exports.handler = (event, context, callback) => {
                     latestDataDate: latestDataDate,
                     status: "SUCCESS",
                     modified: modified
-                  },
-                  $push: {
-                    messages: {
-                      problematic_ids: [],
-                      key: file_key,
-                      errors: [],
-                      modified: modified
-                    }
                   }
                 }], function(res) {
                   console.log(["SUCCESS", res]);

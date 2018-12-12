@@ -99,7 +99,6 @@ exports.handler = (event, context, callback) => {
             {
               fullCameraLocationMd5: fullCameraLocationMd5,
               projectId: tag_data.projectId,
-              projectTitle: tag_data.projectTitle,
               "locked": true,
               "locked_by": tag_data.userId,
               "locked_on": Date.now() / 1000
@@ -156,14 +155,6 @@ exports.handler = (event, context, callback) => {
                   modified: modified,
                   earliestDataDate: minDateTime,
                   latestDataDate: maxDateTime
-                },
-                $push: {
-                  messages: {
-                    problematic_ids: [],
-                    key: file_key,
-                    errors: [],
-                    modified: modified,
-                  }
                 }
               }],
               {onSuccess: console.log}
@@ -200,11 +191,13 @@ exports.handler = (event, context, callback) => {
                 post_to_api('/project/bulk-update', update_project_data_span, { onSuccess: context.succeed }, null);
 
               });
-            
             }).on("error", (err) => {
               console.log("Error: " + err.message);
               context.done(null, 'FAILURE');
             });
+
+            unlockLocation();
+
           } // end of func updateProjectDataSpan
 
           function jsonUploadError (uploadErr) {
@@ -232,9 +225,25 @@ exports.handler = (event, context, callback) => {
               uploadError,
               { onSuccess: console.log, onError: console.log }
             );
+
+            unlockLocation();
           }
 
-
+          function unlockLocation () {
+            let unlock_post_data = [
+              {
+                fullCameraLocationMd5: fullCameraLocationMd5,
+                projectId: tag_data.projectId,
+                "locked": false,
+                "locked_by": tag_data.userId,
+                "locked_on": Date.now() / 1000
+              }
+            ];
+  
+            // console.log(unlock_post_data);
+            // post the data
+            post_to_api ("/camera-location/data-lock/bulk-replace", unlock_post_data, { onSuccess: console.log, onError: console.log });
+          }
 
         }
       }); // get object
