@@ -17,7 +17,7 @@ let field_map = {
   projectId: 'projectId',
   site: 'site',
   subSite: 'subSite',
-  cameraLocation: 'location',
+  cameraLocation: 'cameraLocation',
   filename: 'filename',
   corrected_date_time: 'corrected_date_time',
   sex: 'sex',
@@ -520,8 +520,8 @@ exports.handler = (event, context, callback) => {
                 data_errors.push ("上傳資料可能與過往資料重疊。");
               }
 
+              let modified = Date.now() / 1000;
               if (data_errors.length > 0) {
-                let modified = Date.now() / 1000;
                 post_to_api("/upload-session/bulk-update", [{
                   _id: upload_session_id,
                   projectId: tag_data.projectId,
