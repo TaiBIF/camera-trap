@@ -23,11 +23,23 @@ function post_to_api (endpoint_path, json, post_callback, callbackArgsOverride =
 
   let post_req = https.request(post_options, function(res) {
     res.setEncoding('utf8');
-    res.on('data', function (_res) {
+    let fullRes = "";
+    res.on('data', function (data) {
       // console.log('Response: ' + _res);
+      fullRes += data;
+    });
 
-      const result = JSON.parse(_res);
-
+    res.on('end', function(){
+      
+      let result;
+      try {
+        result = JSON.parse(fullRes);
+      }
+      catch (e) {
+        console.log(e);
+        console.log(fullRes);
+      }
+      
       if (result.error) {
         if (post_callback.onError) {
           post_callback.onError(result.error);
@@ -40,7 +52,9 @@ function post_to_api (endpoint_path, json, post_callback, callbackArgsOverride =
         }
       }
       // context.succeed();
-    });
+    })
+
+
     res.on('error', function (e) {
       console.log("Got error: " + e.message);
       context.done(null, 'FAILURE');
@@ -112,9 +126,16 @@ exports.handler = (event, context, callback) => {
 
           function postJson () {
             console.log('-----------postJson');
-            let json_string = data.Body.toString();
-            let json = JSON.parse(json_string);
-            //console.log(json);
+            let json_string, json;
+            try {
+              json_string = data.Body.toString();
+              json = JSON.parse(json_string);
+            }
+            catch (e) {
+              //console.log(json);
+              console.log(e);
+              console.log(json_string);
+            }
 
             // An object of options to indicate where to post to
             let force_import = (event.force_import === undefined) ? true : event.force_import;
@@ -155,7 +176,16 @@ exports.handler = (event, context, callback) => {
                   modified: modified,
                   earliestDataDate: minDateTime,
                   latestDataDate: maxDateTime
-                }
+                },
+                $setOnInsert: {
+                  _id: uploadSessionId,
+                  upload_session_id: uploadSessionId,
+                  fullCameraLocationMd5: fullCameraLocationMd5,
+                  projectTitle: tag_data.projectTitle,
+                  projectId: tag_data.projectId,
+                  by: tag_data.userId,
+                },
+                $upsert: true
               }],
               {onSuccess: console.log}
             );            
@@ -171,7 +201,14 @@ exports.handler = (event, context, callback) => {
             
               // The whole response has been received. Print out the result.
               resp.on('end', () => {
-                let prj = JSON.parse(data);
+                let prj; 
+                try {
+                  prj = JSON.parse(data);
+                }
+                catch (e) {
+                  console.log(e);
+                  console.log(data);
+                }
                 let {earliestRecordTimestamp, latestRecordTimestamp} = prj;
                 if (!earliestRecordTimestamp) earliestRecordTimestamp = Infinity;
                 if (!latestRecordTimestamp) latestRecordTimestamp = -Infinity;
@@ -217,7 +254,16 @@ exports.handler = (event, context, callback) => {
                   errors: [uploadErr.message],
                   modified: modified,
                 }
-              }
+              },
+              $setOnInsert: {
+                _id: uploadSessionId,
+                upload_session_id: uploadSessionId,
+                fullCameraLocationMd5: fullCameraLocationMd5,
+                projectTitle: tag_data.projectTitle,
+                projectId: tag_data.projectId,
+                by: tag_data.userId,
+              },
+              $upsert: true
             }];
             console.log(uploadError);
             post_to_api(

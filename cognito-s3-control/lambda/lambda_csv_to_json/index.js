@@ -72,16 +72,23 @@ function post_to_api (endpoint_path, json, post_callback, callbackArgsOverride =
 
   let post_req = https.request(post_options, function(res) {
     res.setEncoding('utf8');
-    res.on('data', function (res) {
-      console.log('Response: ' + res);
+    let fullRes = "";
+    res.on('data', function (data) {
+      fullRes += data;
+      // console.log('Response: ' + res);
+    });
+
+    res.on('end', function(){
       if (callbackArgsOverride !== undefined) {
         post_callback(callbackArgsOverride);
       }
       else {
-        post_callback(JSON.parse(res));
+        post_callback(JSON.parse(fullRes));
       }
       // context.succeed();
-    });
+    })
+
+
     res.on('error', function (e) {
       console.log("Got error: " + e.message);
       context.done(null, 'FAILURE');
@@ -327,6 +334,7 @@ exports.handler = (event, context, callback) => {
 
               // 目前只接受 jpg, mp4 與 avi
               let mm_type = "Invalid";
+              let typeFolder = "images"
               if (ext.match(/jpg$|jpeg$/i)) {
                 ext = "jpg";
                 mm_type = "StillImage";
@@ -334,10 +342,12 @@ exports.handler = (event, context, callback) => {
               else if (ext.match(/mp4$/i)) {
                 ext = "mp4";
                 mm_type = "MovingImage";
+                typeFolder = "video";
               }
               else if (ext.match(/avi$/i)) {
                 ext = "avi";
                 mm_type = "MovingImage";
+                typeFolder = "video";
               }
               else {
                 // TODO: throw errer
@@ -345,7 +355,7 @@ exports.handler = (event, context, callback) => {
 
               // 檔名後方強制加上 timestamp 以確保包含完整計畫與地點的檔案路徑是系統唯一
               baseFileName = baseFileNameParts.join(".") + "_" + timestamp;
-              let relocate_path = root_dir + "images/orig/" + fullCameraLocation;
+              let relocate_path = root_dir + typeFolder + "/orig/" + fullCameraLocation;
               let relative_url = relocate_path + '/' + baseFileName + "." + ext;
               let _id = md5(relative_url);
 
@@ -538,7 +548,16 @@ exports.handler = (event, context, callback) => {
                       errors: data_errors,
                       modified: modified
                     }
-                  }
+                  },
+                  $setOnInsert: {
+                    _id: upload_session_id,
+                    upload_session_id: upload_session_id,
+                    fullCameraLocationMd5: fullCameraLocationMd5,
+                    projectTitle: tag_data.projectTitle,
+                    projectId: tag_data.projectId,
+                    by: tag_data.userId,
+                  },
+                  $upsert: true
                 }], function(res) {
                   console.log(["ERROR REPORTING", res]);
                 });
@@ -552,7 +571,16 @@ exports.handler = (event, context, callback) => {
                     latestDataDate: latestDataDate,
                     status: "SUCCESS",
                     modified: modified
-                  }
+                  },
+                  $setOnInsert: {
+                    _id: upload_session_id,
+                    upload_session_id: upload_session_id,
+                    fullCameraLocationMd5: fullCameraLocationMd5,
+                    projectTitle: tag_data.projectTitle,
+                    projectId: tag_data.projectId,
+                    by: tag_data.userId,
+                  },
+                  $upsert: true
                 }], function(res) {
                   console.log(["SUCCESS", res]);
                 });

@@ -73,16 +73,17 @@ exports.handler = (event, context, callback) => {
         let uploaded_baseFileName = baseFileName;
         let baseFileNameParts = baseFileName.split(".");
         // if (baseFileNameParts.length > 1)
-        baseFileNameParts.pop();
+        let ext = baseFileNameParts.pop();
+        let ext_lower = ext.toLocaleLowerCase();
         
         let fullCameraLocation = tag_data.projectId + "/" + tag_data.site + "/" + tag_data.subSite + "/" + tag_data.cameraLocation;
         let relocate_path = root_dir + "images/orig/" + fullCameraLocation;
         let relocate_path_low_quality = root_dir + "images/_res_quality_/" + fullCameraLocation;
 
         if (fileName.match(/\.(mp4)$|\.(avi)$/i)) {
-          let matched_name = fileName.match(/\.(mp4)$|\.(avi)$/i);
-          let ext = matched_name[1] || matched_name[2];
-          ext = ext.toLocaleLowerCase();
+          // let matched_name = fileName.match(/\.(mp4)$|\.(avi)$/i);
+          // let ext = matched_name[1] || matched_name[2];
+          // ext = ext.toLocaleLowerCase();
 
           // 路徑還是先用 video
           let url_video = "upload/" + upload_session_id + "/video/" + fileName;
@@ -98,7 +99,7 @@ exports.handler = (event, context, callback) => {
             console.log(file_size / 1024 + "kb");
 
             let file_buf = fileWritableStreamBuffer.getContents();
-            s3.upload({Bucket: bucket, Key: url_video, Body: file_buf, ContentType: "video/" + ext, Tagging: tags_string}, {},
+            s3.upload({Bucket: bucket, Key: url_video, Body: file_buf, ContentType: "video/" + ext_lower, Tagging: tags_string}, {},
             function(err, data) {
               if (err)
                 console.log('ERROR!');
@@ -170,7 +171,7 @@ exports.handler = (event, context, callback) => {
                 console.log("Remain size: " + fileWritableStreamBuffer.size() / 1024 + "kb");
 
                 baseFileName = baseFileNameParts.join(".") + "_" + timestamp;
-                let relative_url = relocate_path + '/' + baseFileName + ".jpg";
+                let relative_url = relocate_path + '/' + baseFileName + "." + ext_lower;
                 let relative_url_lq = relocate_path_low_quality + '/' + baseFileName + ".webp";
 
                 let _id = md5(relative_url);
