@@ -11,6 +11,7 @@ let parse = require('csv-parse/lib/sync');
 // key: controlled field names used in code
 // value: field names in data
 let field_map = {
+  /*
   date_time: 'date_time',
   species: 'species',
   projectTitle: 'project',
@@ -22,7 +23,22 @@ let field_map = {
   corrected_date_time: 'corrected_date_time',
   sex: 'sex',
   lifeStage: 'lifeStage',
-  antler: 'antler'
+  antler: 'antler',
+  remarks: 'remarks',
+  //*/
+  date_time: '時間',
+  species: '物種',
+  projectTitle: '計畫名稱',
+  projectId: 'projectId',
+  site: '樣區',
+  subSite: '子樣區',
+  cameraLocation: '相機位置',
+  filename: '檔名',
+  corrected_date_time: '正確時間',
+  sex: '性別',
+  lifeStage: '年齡',
+  antler: '角況',
+  remarks: '備註',
 }
 
 let csv_field_label_map = {};
@@ -47,6 +63,7 @@ inverse_field_map[field_map.projectId] = 'projectId';
 inverse_field_map[field_map.site] = 'site';
 inverse_field_map[field_map.subSite] = 'subSite';
 inverse_field_map[field_map.cameraLocation] = 'cameraLocation';
+inverse_field_map[field_map.species] = 'species';
 
 // these fields are required
 let required_fileds = [
@@ -218,12 +235,15 @@ exports.handler = (event, context, callback) => {
               }
             }
             if (field_map[f.key]) {
+              inverse_field_map[field_map[f.key]] = f.key;
               csv_field_label_map[field_map[f.key]] = f.label;
             }
           });
 
           console.log(validators);
         }
+
+        console.log(['Inverse FieldMap', inverse_field_map]);
 
         let mma_upsert_querys;
         let mma_relative_url_json = root_dir + "json/" + upload_session_id + "/" + tag_data.userId + "/" + file_key_name_part + ".mma.json";
@@ -395,7 +415,7 @@ exports.handler = (event, context, callback) => {
                 }
 
                 data.push({
-                  key: k,
+                  key: inverse_field_map[k] || k,
                   label: csv_field_label_map[k] ? csv_field_label_map[k] : k,
                   value: record[k],
                   data_error_flag: data_error_flag,

@@ -46,9 +46,9 @@ def check_if_video_exist(file_name, date_time_original, projectId, site, subSite
     location_path = CommenHelpers.generate_location_path(projectId, site, subSite, cameraLocation)
     result = query_multimedia_metadata(file_name, int(pytz.timezone('Asia/Taipei').localize(date_time_original).timestamp()), CommenHelpers.to_md5_hexdigest(location_path))
 
-    if 'results' in result and result['results'] is not None and len(result['results']) > 0:
+    if 'results' in result and result['results'] is not None and len(result['results']) > 0 and 'youtube_url' in result['results'][0] and result['results'][0]['youtube_url'] is not None:
         is_video_exist = True
-        url = result['results'][0]['url']
+        url = result['results'][0]['youtube_url']
     
     return is_video_exist, url
 
