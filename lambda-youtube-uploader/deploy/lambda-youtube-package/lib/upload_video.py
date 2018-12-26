@@ -374,7 +374,7 @@ def search_target_playlist(client_instance, key, next_page_token):
             return None
 
 
-def add_video_to_playlist(client_instance, video_id, cameraLocation):
+def add_video_to_playlist(client_instance, video_id, upload_meta):
     """
     add video to playlist
 
@@ -383,13 +383,19 @@ def add_video_to_playlist(client_instance, video_id, cameraLocation):
             resource => youtube resource
         :video_id
             string => the youtube video id
-        :cameraLocation
-            string => title of the playlist
+        :upload_meta
+            array => meta of uploaded file
+            0 => projectId
+            1 => projectTitle
+            2 => site
+            3 => subSite
+            4 => cameraLocation
 
     Return:
         int => return the playlist id
     """
     playlist_id = None
+    fullCameraLocation = '{}/{}/{}/{}'.format(upload_meta[1], upload_meta[2], upload_meta[3], upload_meta[4])
 
     # get playlist and find if new one is duplicated
     playlist = playlists_list_mine(client_instance,
@@ -399,21 +405,21 @@ def add_video_to_playlist(client_instance, video_id, cameraLocation):
 
     # set true if target if found
     for item in playlist['items']:
-        if item['snippet']['title'] == cameraLocation:
+        if item['snippet']['title'] == fullCameraLocation:
             playlist_id = item['id']
             break
 
     # else find the following pages
     if playlist_id is None and 'nextPageToken' in playlist:
         playlist_id = search_target_playlist(client_instance,
-                                             cameraLocation, playlist['nextPageToken'])
+                                             fullCameraLocation, playlist['nextPageToken'])
 
     # insert new playlist if neccessary
     if playlist_id is None:
         playlist_id = playlists_insert(client_instance,
-                                       {'snippet.title': cameraLocation,
-                                        'snippet.description': cameraLocation,
-                                        'snippet.tags[]': cameraLocation,
+                                       {'snippet.title': fullCameraLocation,
+                                        'snippet.description': fullCameraLocation,
+                                        'snippet.tags[]': ','.join(upload_meta[0:2]),
                                         'snippet.defaultLanguage': '',
                                         'status.privacyStatus': 'public'},
                                        part='snippet,status')

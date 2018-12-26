@@ -39,7 +39,8 @@ def check_if_video_exist(file_name, date_time_original, projectId, site, subSite
     """
 
     is_video_exist = False
-    url = ''
+    youtube_url = ''
+    youtube_playlist_id = ''
 
     # check if this video has been uploaded or not
     # if the video was already uploaded, then dismiss the job
@@ -48,9 +49,10 @@ def check_if_video_exist(file_name, date_time_original, projectId, site, subSite
 
     if 'results' in result and result['results'] is not None and len(result['results']) > 0 and 'youtube_url' in result['results'][0] and result['results'][0]['youtube_url'] is not None:
         is_video_exist = True
-        url = result['results'][0]['youtube_url']
+        youtube_url = result['results'][0]['youtube_url']
+        youtube_playlist_id = result['results'][0]['youtube_playlist_id']
     
-    return is_video_exist, url
+    return is_video_exist, youtube_url, youtube_playlist_id
 
 def set_default_value(target_dict):
     """
@@ -112,54 +114,63 @@ def lambda_handler(event, context):
 
     # check if this video has been uploaded or not
     # if the video was already uploaded, then dismiss the job
-    is_video_exist, youtube_url = check_if_video_exist(file_name, 
+    is_video_exist, youtube_url, youtube_playlist_id = check_if_video_exist(file_name, 
                                             video_meta['date_time_original'], 
                                             tags['projectId'], 
                                             tags['site'], 
                                             tags['subSite'], 
                                             tags['cameraLocation'])
-    if is_video_exist:
-        print('{} was already uploaded. url: {}'.format(file_name, youtube_url))
-    else:
+
+    try:
+        
         # get authorization
         client_instance = get_authenticated_service()
 
-        try:
+        upload_meta = [tags['projectId'], tags['projectTitle'], tags['site'], tags['subSite'], tags['cameraLocation']]
+
+        if is_video_exist:
+            print('{} was already uploaded. url: {}'.format(file_name, youtube_url))
+            video_id = youtube_url.split('?v=').pop()
+            
+        else:
+            
             # upload video
             video_id = initialize_upload(client_instance, args)
-        
+
             # add video to target playlist
-            playlist_id = add_video_to_playlist(client_instance, video_id, tags['cameraLocation'])
+            youtube_url = '{}{}'.format(SYS_PARAMS.YOUTUBE_VIDEO_URL, video_id)
 
-            # create mma/mmm json file and upload to s3 bucket
-            json_gen = JsonFileGenerator(bucket=SYS_PARAMS.SRC_BUCKET,
-                                        youtube_url='{}{}'.format(SYS_PARAMS.YOUTUBE_VIDEO_URL, video_id),
-                                        youtube_playlist_id=playlist_id,
-                                        projectId=tags['projectId'],
-                                        projectTitle=tags['projectTitle'],
-                                        site=tags['site'],
-                                        subSite=tags['subSite'],
-                                        cameraLocation=tags['cameraLocation'],
-                                        video_name=file_name,
-                                        video_length=video_meta['duration'],
-                                        video_org_datetime=video_meta['date_time_original'],
-                                        video_mod_datetime=video_meta['date_last_modification'],
-                                        video_width=video_meta['width'],
-                                        video_height=video_meta['height'],
-                                        userId=tags['userId'],
-                                        upload_session_id=session_id,
-                                        device_metadata=video_meta['device_metadata'],
-                                        exif=video_meta['exif'], 
-                                        make=video_meta['make'],
-                                        model=video_meta['model'])
+        youtube_playlist_id = add_video_to_playlist(client_instance, video_id, upload_meta)
 
-            json_gen.do_process()
+        # create mma/mmm json file and upload to s3 bucket
+        json_gen = JsonFileGenerator(bucket=SYS_PARAMS.SRC_BUCKET,
+                                    youtube_url=youtube_url,
+                                    youtube_playlist_id=youtube_playlist_id,
+                                    projectId=tags['projectId'],
+                                    projectTitle=tags['projectTitle'],
+                                    site=tags['site'],
+                                    subSite=tags['subSite'],
+                                    cameraLocation=tags['cameraLocation'],
+                                    video_name=file_name,
+                                    video_length=video_meta['duration'],
+                                    video_org_datetime=video_meta['date_time_original'],
+                                    video_mod_datetime=video_meta['date_last_modification'],
+                                    video_width=video_meta['width'],
+                                    video_height=video_meta['height'],
+                                    userId=tags['userId'],
+                                    upload_session_id=session_id,
+                                    device_metadata=video_meta['device_metadata'],
+                                    exif=video_meta['exif'], 
+                                    make=video_meta['make'],
+                                    model=video_meta['model'])
 
-        except HttpError as e:
-            print('An HTTP error %d occurred:\n%s' % (e.resp.status, e.content))
+        json_gen.do_process()
 
-        except Exception as e:
-            print(e)
+    except HttpError as e:
+        print('An HTTP error %d occurred:\n%s' % (e.resp.status, e.content))
+
+    except Exception as e:
+        print(e)
 
     return {
         "statusCode": 200,
