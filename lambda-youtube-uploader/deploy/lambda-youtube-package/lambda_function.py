@@ -16,6 +16,16 @@ from lib.upload_video import *
 
 import pytz
 
+def search_list_by_keyword(client, **kwargs):
+  # See full sample for function
+  kwargs = remove_empty_kwargs(**kwargs)
+
+  response = client.search().list(
+    **kwargs
+  ).execute()
+
+  return response
+
 def check_if_video_exist(file_name, date_time_original, projectId, site, subSite, cameraLocation):
     """
     check if video exists in TaiBIF
@@ -45,7 +55,9 @@ def check_if_video_exist(file_name, date_time_original, projectId, site, subSite
     # check if this video has been uploaded or not
     # if the video was already uploaded, then dismiss the job
     location_path = CommenHelpers.generate_location_path(projectId, site, subSite, cameraLocation)
-    result = query_multimedia_metadata(file_name, int(pytz.timezone('Asia/Taipei').localize(date_time_original).timestamp()), CommenHelpers.to_md5_hexdigest(location_path))
+    location_path_md5 = CommenHelpers.to_md5_hexdigest(location_path)
+
+    result = query_multimedia_metadata(file_name, int(pytz.timezone('Asia/Taipei').localize(date_time_original).timestamp()), location_path_md5)
 
     if 'results' in result and result['results'] is not None and len(result['results']) > 0 and 'youtube_url' in result['results'][0] and result['results'][0]['youtube_url'] is not None:
         is_video_exist = True
@@ -114,31 +126,49 @@ def lambda_handler(event, context):
 
     # check if this video has been uploaded or not
     # if the video was already uploaded, then dismiss the job
-    is_video_exist, youtube_url, youtube_playlist_id = check_if_video_exist(file_name, 
-                                            video_meta['date_time_original'], 
-                                            tags['projectId'], 
-                                            tags['site'], 
-                                            tags['subSite'], 
-                                            tags['cameraLocation'])
+    # is_video_exist, youtube_url, youtube_playlist_id = check_if_video_exist(file_name, 
+    #                                        video_meta['date_time_original'], 
+    #                                        tags['projectId'], 
+    #                                        tags['site'], 
+    #                                        tags['subSite'], 
+    #                                        tags['cameraLocation'])
 
     try:
-        
         # get authorization
         client_instance = get_authenticated_service()
 
-        upload_meta = [tags['projectId'], tags['projectTitle'], tags['site'], tags['subSite'], tags['cameraLocation']]
+        location_path = CommenHelpers.generate_location_path(tags['projectId'], tags['site'], tags['subSite'], tags['cameraLocation'])
+        relocate_path = 'video/orig/{}'.format(location_path)
+        file_parts = file_name.split('.')
+        ext = file_parts.pop()
+        date_time_original_timestamp = int(pytz.timezone('Asia/Taipei').localize(video_meta['date_time_original']).timestamp()) # 由 date_time_original 轉換而來
+        base_file_name = '{}_{}.{}'.format('.'.join(file_parts), date_time_original_timestamp, ext.lower())
+        relative_url = '{}/{}'.format(relocate_path, base_file_name)
+        url_md5 = CommenHelpers.to_md5_hexdigest(relative_url)
+        print(relative_url)
+        
+        found = search_list_by_keyword(client_instance,
+            part='snippet',
+            maxResults=1,
+            forMine=1,
+            q=url_md5,
+            type='video')
 
-        if is_video_exist:
-            print('{} was already uploaded. url: {}'.format(file_name, youtube_url))
-            video_id = youtube_url.split('?v=').pop()
-            
+        upload_meta = [tags['projectId'], tags['projectTitle'], tags['site'], tags['subSite'], tags['cameraLocation'], url_md5]
+
+        # if is_video_exist:
+        if found['pageInfo']['totalResults'] > 0:
+            if found['items'][0]['snippet']['title'] == url_md5:
+                video_id = found['items'][0]['id']['videoId']
+                print('{} was already uploaded. url: {}'.format(file_name, video_id))
+           
         else:
-            
             # upload video
+            args.title = url_md5
             video_id = initialize_upload(client_instance, args)
 
-            # add video to target playlist
-            youtube_url = '{}{}'.format(SYS_PARAMS.YOUTUBE_VIDEO_URL, video_id)
+        # add video to target playlist
+        youtube_url = '{}{}'.format(SYS_PARAMS.YOUTUBE_VIDEO_URL, video_id)
 
         youtube_playlist_id = add_video_to_playlist(client_instance, video_id, upload_meta)
 
