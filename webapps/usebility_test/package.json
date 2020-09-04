@@ -27,7 +27,7 @@
     "laravel-elixir-vue-2": "^0.3.0",
     "laravel-elixir-webpack-official": "^1.0.2",
     "moment": "^2.22.2",
-    "node-sass": "^4.9.2",
+    "node-sass": "^4.13.1",
     "style-loader": "^0.21.0",
     "vue": "^2.5.16",
     "vue-loader": "^14.2.2",
