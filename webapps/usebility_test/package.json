@@ -61,7 +61,7 @@
   },
   "dependencies": {
     "compass-mixins": "^0.12.10",
-    "highcharts": "^6.1.1",
+    "highcharts": "^9.0.0",
     "leaflet.icon.glyph": "^0.2.0",
     "popper": "^1.0.1",
     "progressbar.js": "^1.0.1",
